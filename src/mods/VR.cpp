@@ -285,6 +285,11 @@ void VR::inputsystem_update_hook(void* ctx, REManagedObject* input_system) {
 
     auto left_axis = mod->get_left_stick_axis();
     auto right_axis = mod->get_right_stick_axis();
+
+    if (mod->is_snap_turn_axis_active(right_axis)) {
+        right_axis = {};
+    }
+
     const auto left_axis_len = glm::length(left_axis);
     const auto right_axis_len = glm::length(right_axis);
 
@@ -1603,6 +1608,65 @@ void VR::update_action_states() {
     if (m_set_standing_key->is_key_down_once()) {
         set_standing_origin(get_position(0));
     }
+
+    update_snap_turn();
+}
+
+bool VR::is_snap_turn_axis_active(const Vector2f& axis) const {
+    if (!m_snap_turn->value()) {
+        return false;
+    }
+
+    const auto threshold = std::max(m_snap_turn_threshold->value(), m_joystick_deadzone->value());
+
+    return std::abs(axis.x) >= threshold && std::abs(axis.x) > std::abs(axis.y);
+}
+
+void VR::update_snap_turn() {
+    if (!m_snap_turn->value() || !get_runtime()->ready() || m_controllers.empty()) {
+        m_was_snap_turn_active = false;
+        return;
+    }
+
+    const auto axis = get_right_stick_axis();
+    const auto threshold = std::max(m_snap_turn_threshold->value(), m_joystick_deadzone->value());
+    const auto reset_threshold = std::max(m_joystick_deadzone->value(), threshold * 0.5f);
+
+    if (std::abs(axis.x) < reset_threshold || std::abs(axis.x) <= std::abs(axis.y)) {
+        m_was_snap_turn_active = false;
+        return;
+    }
+
+    if (!is_snap_turn_axis_active(axis) || m_was_snap_turn_active) {
+        return;
+    }
+
+    const auto direction = axis.x > 0.0f ? -1.0f : 1.0f;
+    const auto angle = std::clamp(m_snap_turn_angle->value(), 15.0f, 180.0f);
+    const auto turn = glm::angleAxis(glm::radians(direction * angle), Vector3f{0.0f, 1.0f, 0.0f});
+
+    const auto old_offset = get_rotation_offset();
+    const auto new_offset = glm::normalize(turn * old_offset);
+    const auto hmd_position = get_position(vr::k_unTrackedDeviceIndex_Hmd);
+
+    {
+        std::unique_lock _{ get_runtime()->pose_mtx };
+
+        auto old_relative_pos = hmd_position - m_standing_origin;
+        old_relative_pos.w = 0.0f;
+
+        auto new_relative_pos = glm::inverse(new_offset) * old_offset * old_relative_pos;
+        new_relative_pos.w = 0.0f;
+
+        auto new_standing_origin = hmd_position - new_relative_pos;
+        new_standing_origin.y = m_standing_origin.y;
+        new_standing_origin.w = m_standing_origin.w;
+        m_standing_origin = new_standing_origin;
+    }
+
+    set_rotation_offset(new_offset);
+    m_last_controller_update = std::chrono::steady_clock::now();
+    m_was_snap_turn_active = true;
 }
 
 void VR::update_camera() {
@@ -3043,7 +3107,11 @@ void VR::on_pre_begin_rendering(void* entry) {
             // Move direction
             // It's not a Vector2f because via.vec2 is not actually 8 bytes, we don't want stack corruption to occur.
             const auto axis_l = (Vector2f)*utility::re_managed_object::get_field<Vector3f*>(pad, "AxisL");
-            const auto axis_r = (Vector2f)*utility::re_managed_object::get_field<Vector3f*>(pad, "AxisR");
+            auto axis_r = (Vector2f)*utility::re_managed_object::get_field<Vector3f*>(pad, "AxisR");
+
+            if (is_snap_turn_axis_active(axis_r)) {
+                axis_r = {};
+            }
 
             // Lerp the standing origin back to HMD position
             // if the user is moving
@@ -3612,7 +3680,12 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
     set_button_state((app::ropeway::InputDefine::Kind)((uint64_t)1 << 52), is_right_b_button_down);
 
     const auto left_axis = get_left_stick_axis();
-    const auto right_axis = get_right_stick_axis();
+    auto right_axis = get_right_stick_axis();
+
+    if (is_snap_turn_axis_active(right_axis)) {
+        right_axis = {};
+    }
+
     const auto left_axis_len = glm::length(left_axis);
     const auto right_axis_len = glm::length(right_axis);
 
@@ -3723,7 +3796,12 @@ void VR::openvr_input_to_re_engine() {
     // TODO: Get the "merged pad" and actually modify some inputs!
 
     const auto left_axis = get_left_stick_axis();
-    const auto right_axis = get_right_stick_axis();
+    auto right_axis = get_right_stick_axis();
+
+    if (is_snap_turn_axis_active(right_axis)) {
+        right_axis = {};
+    }
+
     const auto left_axis_len = glm::length(left_axis);
     const auto right_axis_len = glm::length(right_axis);
     const auto now = std::chrono::steady_clock::now();
@@ -3864,6 +3942,12 @@ void VR::on_draw_ui() {
     m_view_distance->draw("View Distance/FarZ");
     m_motion_controls_inactivity_timer->draw("Inactivity Timer");
     m_joystick_deadzone->draw("Joystick Deadzone");
+    m_snap_turn->draw("Snap Turning");
+
+    if (m_snap_turn->value()) {
+        m_snap_turn_angle->draw("Snap Turn Angle");
+        m_snap_turn_threshold->draw("Snap Turn Threshold");
+    }
 
     m_ui_scale_option->draw("2D UI Scale");
     m_ui_distance_option->draw("2D UI Distance");
@@ -3951,6 +4035,18 @@ void VR::on_config_load(const utility::Config& cfg) {
 
         m_openxr->resolution_scale = m_resolution_scale->value();
         initialize_openxr_swapchains();
+    }
+
+    if (m_motion_controls_inactivity_timer->value() <= 10.0f) {
+        m_motion_controls_inactivity_timer->value() = 30.0f;
+    }
+
+    if (m_snap_turn_angle->value() <= 0.0f) {
+        m_snap_turn_angle->value() = 45.0f;
+    }
+
+    if (m_snap_turn_threshold->value() <= 0.0f) {
+        m_snap_turn_threshold->value() = 0.5f;
     }
 }
 
