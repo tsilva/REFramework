@@ -9,6 +9,8 @@ void OverlayComponent::on_reset() {
 
 std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     m_overlay_data = {};
+    m_force_show_ui = false;
+    m_was_menu_combo_down = false;
 
     // create vr overlay
     auto overlay_error = vr::VROverlay()->CreateOverlay("REFramework", "REFramework", &m_overlay_handle);
@@ -192,9 +194,43 @@ void OverlayComponent::update_overlay() {
     // Fire an intersection test and enable the laser pointer if we're intersecting
     const auto& controllers = vr->get_controllers();
 
-    bool should_show_overlay = !m_closed_ui;
+    const auto is_menu_combo_down =
+        controllers.size() >= 2 &&
+        vr->is_action_active(vr->get_action_trigger(), vr->get_left_joystick()) &&
+        vr->is_action_active(vr->get_action_trigger(), vr->get_right_joystick());
+    const auto menu_combo_pressed = is_menu_combo_down && !m_was_menu_combo_down;
+    m_was_menu_combo_down = is_menu_combo_down;
 
-    if (controllers.size() >= 2 && !vr->is_any_action_down()) {
+    if (menu_combo_pressed) {
+        m_force_show_ui = !m_force_show_ui;
+        m_closed_ui = !m_force_show_ui;
+        m_just_opened_ui = m_force_show_ui;
+        m_just_closed_ui = !m_force_show_ui;
+
+        g_framework->set_draw_ui(m_force_show_ui);
+        vr::VROverlay()->SetOverlayFlag(
+            m_overlay_handle,
+            vr::VROverlayFlags::VROverlayFlags_MakeOverlaysInteractiveIfVisible,
+            m_force_show_ui
+        );
+    }
+
+    if (!g_framework->is_drawing_ui() && (!m_closed_ui || m_force_show_ui)) {
+        m_force_show_ui = false;
+        m_closed_ui = true;
+        m_just_opened_ui = false;
+        m_just_closed_ui = true;
+
+        vr::VROverlay()->SetOverlayFlag(
+            m_overlay_handle,
+            vr::VROverlayFlags::VROverlayFlags_MakeOverlaysInteractiveIfVisible,
+            false
+        );
+    }
+
+    bool should_show_overlay = m_force_show_ui || !m_closed_ui;
+
+    if (controllers.size() >= 2 && (m_force_show_ui || !vr->is_any_action_down())) {
         Matrix4x4f left_controller_world_transform{glm::identity<Matrix4x4f>()};
 
         // Attach the overlay to the left controller
@@ -323,7 +359,7 @@ void OverlayComponent::update_overlay() {
 
             m_closed_ui = false;
             m_just_closed_ui = false;
-        } else {
+        } else if (!m_force_show_ui) {
             should_show_overlay = false;
             vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
 
