@@ -1,10 +1,16 @@
+#include <algorithm>
+#include <cstring>
+
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <openvr.h>
+#include <d3dcompiler.h>
 
 #include "../VR.hpp"
 
 #include "D3D11Component.hpp"
+
+#pragma comment(lib, "d3dcompiler")
 
 #ifdef VERBOSE_D3D11
 #define LOG_VERBOSE(...) spdlog::info(__VA_ARGS__)
@@ -40,6 +46,8 @@ vr::EVRCompositorError D3D11Component::on_frame(VR* vr) {
         spdlog::error("[VR] Failed to get back buffer.");
         return vr::VRCompositorError_None;
     }
+
+    draw_comfort_vignette(vr, backbuffer.Get());
 
     auto runtime = vr->get_runtime();
 
@@ -125,6 +133,10 @@ void D3D11Component::on_reset(VR* vr) {
     m_right_eye_tex.Reset();
     m_left_eye_depthstencil.Reset();
     m_right_eye_depthstencil.Reset();
+    m_vignette_vertex_shader.Reset();
+    m_vignette_pixel_shader.Reset();
+    m_vignette_constants.Reset();
+    m_vignette_blend_state.Reset();
 
     if (vr->get_runtime()->is_openxr() && vr->get_runtime()->loaded) {
         if (m_openxr.last_resolution[0] != vr->get_hmd_width() || m_openxr.last_resolution[1] != vr->get_hmd_height()) {
@@ -179,6 +191,191 @@ void D3D11Component::setup() {
     }
 
     spdlog::info("[VR] d3d11 textures have been setup");
+}
+
+bool D3D11Component::setup_comfort_vignette() {
+    if (m_vignette_vertex_shader != nullptr && m_vignette_pixel_shader != nullptr && m_vignette_constants != nullptr && m_vignette_blend_state != nullptr) {
+        return true;
+    }
+
+    auto& hook = g_framework->get_d3d11_hook();
+    auto device = hook->get_device();
+
+    static const char* vertex_shader = R"(
+        struct VSOut {
+            float4 pos : SV_Position;
+            float2 uv : TEXCOORD0;
+        };
+
+        VSOut main(uint id : SV_VertexID) {
+            float2 positions[3] = {
+                float2(-1.0, -1.0),
+                float2(-1.0,  3.0),
+                float2( 3.0, -1.0)
+            };
+
+            float2 uvs[3] = {
+                float2(0.0, 1.0),
+                float2(0.0, -1.0),
+                float2(2.0, 1.0)
+            };
+
+            VSOut output;
+            output.pos = float4(positions[id], 0.0, 1.0);
+            output.uv = uvs[id];
+            return output;
+        }
+    )";
+
+    static const char* pixel_shader = R"(
+        cbuffer VignetteConstants : register(b0) {
+            float amount;
+            float inner_width;
+            float outer_width;
+            float aspect;
+            float outer_side;
+            float padding0;
+            float padding1;
+            float padding2;
+        };
+
+        float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
+            float side_distance = outer_side < 0.0 ? uv.x : (1.0 - uv.x);
+            float vertical_distance = min(uv.y, 1.0 - uv.y);
+
+            float side_edge = 1.0 - smoothstep(inner_width, outer_width, side_distance);
+            float vertical_edge = 1.0 - smoothstep(inner_width, outer_width, vertical_distance);
+            float edge = max(side_edge, vertical_edge);
+
+            return float4(0.0, 0.0, 0.0, saturate(edge * amount));
+        }
+    )";
+
+    ComPtr<ID3DBlob> vs_blob{};
+    ComPtr<ID3DBlob> ps_blob{};
+    ComPtr<ID3DBlob> errors{};
+
+    if (FAILED(D3DCompile(vertex_shader, strlen(vertex_shader), nullptr, nullptr, nullptr, "main", "vs_4_0", 0, 0, &vs_blob, &errors))) {
+        spdlog::error("[VR] Failed to compile comfort vignette vertex shader");
+        return false;
+    }
+
+    errors.Reset();
+
+    if (FAILED(D3DCompile(pixel_shader, strlen(pixel_shader), nullptr, nullptr, nullptr, "main", "ps_4_0", 0, 0, &ps_blob, &errors))) {
+        spdlog::error("[VR] Failed to compile comfort vignette pixel shader");
+        return false;
+    }
+
+    if (FAILED(device->CreateVertexShader(vs_blob->GetBufferPointer(), vs_blob->GetBufferSize(), nullptr, &m_vignette_vertex_shader))) {
+        spdlog::error("[VR] Failed to create comfort vignette vertex shader");
+        return false;
+    }
+
+    if (FAILED(device->CreatePixelShader(ps_blob->GetBufferPointer(), ps_blob->GetBufferSize(), nullptr, &m_vignette_pixel_shader))) {
+        spdlog::error("[VR] Failed to create comfort vignette pixel shader");
+        return false;
+    }
+
+    D3D11_BUFFER_DESC buffer_desc{};
+    buffer_desc.ByteWidth = sizeof(float) * 8;
+    buffer_desc.Usage = D3D11_USAGE_DYNAMIC;
+    buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    buffer_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    if (FAILED(device->CreateBuffer(&buffer_desc, nullptr, &m_vignette_constants))) {
+        spdlog::error("[VR] Failed to create comfort vignette constant buffer");
+        return false;
+    }
+
+    D3D11_BLEND_DESC blend_desc{};
+    blend_desc.RenderTarget[0].BlendEnable = TRUE;
+    blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    if (FAILED(device->CreateBlendState(&blend_desc, &m_vignette_blend_state))) {
+        spdlog::error("[VR] Failed to create comfort vignette blend state");
+        return false;
+    }
+
+    return true;
+}
+
+void D3D11Component::draw_comfort_vignette(VR* vr, ID3D11Texture2D* backbuffer) {
+    if (backbuffer == nullptr || !vr->m_comfort_vignette->value() || vr->m_comfort_vignette_amount <= 0.01f) {
+        return;
+    }
+
+    if (!setup_comfort_vignette()) {
+        return;
+    }
+
+    auto& hook = g_framework->get_d3d11_hook();
+    auto device = hook->get_device();
+
+    ComPtr<ID3D11DeviceContext> context{};
+    device->GetImmediateContext(&context);
+
+    D3D11_TEXTURE2D_DESC backbuffer_desc{};
+    backbuffer->GetDesc(&backbuffer_desc);
+
+    ComPtr<ID3D11RenderTargetView> rtv{};
+
+    if (FAILED(device->CreateRenderTargetView(backbuffer, nullptr, &rtv))) {
+        return;
+    }
+
+    const auto amount = std::clamp(vr->m_comfort_vignette_amount * vr->m_comfort_vignette_strength->value(), 0.0f, 1.0f);
+    const auto begin_angle = std::clamp(vr->m_comfort_vignette_begin_angle->value(), 1.0f, 89.0f);
+    const auto end_angle = std::clamp(std::max(vr->m_comfort_vignette_end_angle->value(), begin_angle + 1.0f), 2.0f, 89.0f);
+    const auto max_inner_width = std::clamp((begin_angle / 89.0f) * 0.5f, 0.01f, 0.45f);
+    const auto max_outer_width = std::clamp((end_angle / 89.0f) * 0.5f, max_inner_width + 0.01f, 0.5f);
+    const auto inner_width = std::max(max_inner_width * amount, 0.001f);
+    const auto outer_width = std::max(max_outer_width * amount, inner_width + 0.001f);
+    const auto is_left_eye = vr->m_render_frame_count % 2 == vr->m_left_eye_interval;
+
+    const float constants[8]{
+        amount,
+        inner_width,
+        outer_width,
+        (float)backbuffer_desc.Width / (float)std::max(backbuffer_desc.Height, 1u),
+        is_left_eye ? -1.0f : 1.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+    };
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+
+    if (FAILED(context->Map(m_vignette_constants.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        return;
+    }
+
+    memcpy(mapped.pData, constants, sizeof(constants));
+    context->Unmap(m_vignette_constants.Get(), 0);
+
+    D3D11_VIEWPORT viewport{};
+    viewport.Width = (float)backbuffer_desc.Width;
+    viewport.Height = (float)backbuffer_desc.Height;
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    const float blend_factor[4]{0.0f, 0.0f, 0.0f, 0.0f};
+
+    context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+    context->OMSetBlendState(m_vignette_blend_state.Get(), blend_factor, 0xffffffff);
+    context->RSSetViewports(1, &viewport);
+    context->IASetInputLayout(nullptr);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    context->VSSetShader(m_vignette_vertex_shader.Get(), nullptr, 0);
+    context->PSSetShader(m_vignette_pixel_shader.Get(), nullptr, 0);
+    context->PSSetConstantBuffers(0, 1, m_vignette_constants.GetAddressOf());
+    context->Draw(3, 0);
 }
 
 void D3D11Component::OpenXR::initialize(XrSessionCreateInfo& session_info) {

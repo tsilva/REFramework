@@ -32,6 +32,10 @@ private:
     ComPtr<ID3D11Texture2D> m_right_eye_depthstencil{};
     vr::HmdMatrix44_t m_left_eye_proj{};
     vr::HmdMatrix44_t m_right_eye_proj{};
+    ComPtr<ID3D11VertexShader> m_vignette_vertex_shader{};
+    ComPtr<ID3D11PixelShader> m_vignette_pixel_shader{};
+    ComPtr<ID3D11Buffer> m_vignette_constants{};
+    ComPtr<ID3D11BlendState> m_vignette_blend_state{};
 
     struct OpenXR {
         void initialize(XrSessionCreateInfo& session_info);
@@ -52,6 +56,8 @@ private:
     } m_openxr;
 
     void setup();
+    void draw_comfort_vignette(VR* vr, ID3D11Texture2D* backbuffer);
+    bool setup_comfort_vignette();
 };
 } 
 

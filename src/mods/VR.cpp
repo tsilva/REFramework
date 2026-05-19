@@ -1610,6 +1610,7 @@ void VR::update_action_states() {
     }
 
     update_snap_turn();
+    update_comfort_vignette();
 }
 
 bool VR::is_snap_turn_axis_active(const Vector2f& axis) const {
@@ -1667,6 +1668,107 @@ void VR::update_snap_turn() {
     set_rotation_offset(new_offset);
     m_last_controller_update = std::chrono::steady_clock::now();
     m_was_snap_turn_active = true;
+}
+
+void VR::update_comfort_vignette() {
+    const auto now = std::chrono::steady_clock::now();
+
+    if (m_last_comfort_vignette_update.time_since_epoch().count() == 0) {
+        m_last_comfort_vignette_update = now;
+    }
+
+    const auto delta = std::min(std::chrono::duration<float>{now - m_last_comfort_vignette_update}.count(), 0.1f);
+    m_last_comfort_vignette_update = now;
+
+    if (!get_runtime()->ready() || !m_comfort_vignette->value()) {
+        m_comfort_vignette_amount = 0.0f;
+        m_last_comfort_vignette_target = 0.0f;
+        apply_comfort_vignette(0.0f);
+        return;
+    }
+
+    const auto axis = get_left_stick_axis();
+    const auto deadzone = std::clamp(m_joystick_deadzone->value(), 0.01f, 0.9f);
+    const auto magnitude = std::min(std::sqrt((axis.x * axis.x) + (axis.y * axis.y)), 1.0f);
+    const auto target = magnitude > deadzone ? (magnitude - deadzone) / (1.0f - deadzone) : 0.0f;
+    const auto fade_in = std::max(m_comfort_vignette_fade_in->value(), 0.01f);
+    const auto fade_out = std::max(m_comfort_vignette_fade_out->value(), 0.01f);
+    const auto sudden_movement = target >= 0.85f || (target - m_last_comfort_vignette_target) >= 0.35f;
+    const auto movement_scaled_fade_in = fade_in / std::max(0.45f + (target * 0.55f), 0.01f);
+    const auto effective_fade_in = sudden_movement ? std::max(movement_scaled_fade_in * 0.25f, 0.03f) : movement_scaled_fade_in;
+    const auto rate = delta / (target > m_comfort_vignette_amount ? effective_fade_in : fade_out);
+
+    if (target > m_comfort_vignette_amount) {
+        m_comfort_vignette_amount = std::min(target, m_comfort_vignette_amount + rate);
+    } else {
+        m_comfort_vignette_amount = std::max(target, m_comfort_vignette_amount - rate);
+    }
+
+    m_last_comfort_vignette_target = target;
+
+    apply_comfort_vignette(std::clamp(m_comfort_vignette_amount * m_comfort_vignette_strength->value(), 0.0f, 1.0f));
+}
+
+void VR::apply_comfort_vignette(float amount) {
+    if (m_comfort_post_effect_controller == nullptr || m_comfort_post_effect_controller->ownerGameObject == nullptr) {
+        auto& globals = reframework::get_globals();
+
+        if (globals == nullptr) {
+            return;
+        }
+
+        m_comfort_post_effect_controller = globals->get<RopewayPostEffectController>(game_namespace("posteffect.PostEffectController"));
+        m_comfort_tone_mapping_controller = nullptr;
+    }
+
+    if (m_comfort_post_effect_controller == nullptr) {
+        return;
+    }
+
+    if (m_comfort_tone_mapping_controller == nullptr || m_comfort_tone_mapping_controller->ownerGameObject == nullptr) {
+        m_comfort_tone_mapping_controller = utility::re_component::find<RopewayPostEffectControllerBase>(
+            m_comfort_post_effect_controller,
+            game_namespace("posteffect.ToneMapController")
+        );
+    }
+
+    if (m_comfort_tone_mapping_controller == nullptr) {
+        return;
+    }
+
+    const auto active = amount > 0.01f;
+    const auto begin_angle = std::clamp(m_comfort_vignette_begin_angle->value(), 1.0f, 89.0f);
+    const auto end_angle = std::clamp(std::max(m_comfort_vignette_end_angle->value(), begin_angle + 1.0f), 2.0f, 89.0f);
+    const auto edge_begin = 89.0f + ((begin_angle - 89.0f) * amount);
+    const auto edge_end = 89.0f + ((end_angle - 89.0f) * amount);
+
+    auto update_param = [&](auto param) {
+        if (param == nullptr) {
+            return;
+        }
+
+        auto tone_mapping = (RopewayPostEffectToneMapping*)param;
+        tone_mapping->enabled = true;
+        tone_mapping->timelineOverwrite = active;
+        tone_mapping->timelineBlendRate = active ? 1.0f : 0.0f;
+        tone_mapping->vignetting = (int32_t)(active ? via::render::ToneMapping::Vignetting::KerarePlus : via::render::ToneMapping::Vignetting::Disable);
+        tone_mapping->kerareBeginAngle = edge_begin;
+        tone_mapping->kerareEndAngle = edge_end;
+    };
+
+    update_param(m_comfort_tone_mapping_controller->param1);
+    update_param(m_comfort_tone_mapping_controller->param2);
+    update_param(m_comfort_tone_mapping_controller->param3);
+    update_param(m_comfort_tone_mapping_controller->param4);
+
+    if (m_comfort_tone_mapping_controller->filterSetting != nullptr) {
+        update_param(m_comfort_tone_mapping_controller->filterSetting->param);
+        update_param(m_comfort_tone_mapping_controller->filterSetting->currentParam);
+        update_param(m_comfort_tone_mapping_controller->filterSetting->param1);
+        update_param(m_comfort_tone_mapping_controller->filterSetting->param2);
+    }
+
+    m_comfort_vignette_applied = active;
 }
 
 void VR::update_camera() {
@@ -3949,6 +4051,17 @@ void VR::on_draw_ui() {
         m_snap_turn_threshold->draw("Snap Turn Threshold");
     }
 
+    m_comfort_vignette->draw("Movement Vignette");
+
+    if (m_comfort_vignette->value()) {
+        m_comfort_vignette_strength->draw("Vignette Strength");
+        m_comfort_vignette_fade_in->draw("Vignette Fade In");
+        m_comfort_vignette_fade_out->draw("Vignette Fade Out");
+        m_comfort_vignette_begin_angle->draw("Vignette Begin Angle");
+        m_comfort_vignette_end_angle->draw("Vignette End Angle");
+        ImGui::Text("Vignette Amount: %.2f", m_comfort_vignette_amount);
+    }
+
     m_ui_scale_option->draw("2D UI Scale");
     m_ui_distance_option->draw("2D UI Distance");
     m_world_ui_scale_option->draw("World-Space UI Scale");
@@ -4047,6 +4160,28 @@ void VR::on_config_load(const utility::Config& cfg) {
 
     if (m_snap_turn_threshold->value() <= 0.0f) {
         m_snap_turn_threshold->value() = 0.5f;
+    }
+
+    m_comfort_vignette->value() = true;
+
+    if (m_comfort_vignette_strength->value() < 0.95f) {
+        m_comfort_vignette_strength->value() = 1.0f;
+    }
+
+    if (m_comfort_vignette_fade_in->value() <= 0.0f || m_comfort_vignette_fade_in->value() > 0.15f) {
+        m_comfort_vignette_fade_in->value() = 0.08f;
+    }
+
+    if (m_comfort_vignette_fade_out->value() <= 0.0f || m_comfort_vignette_fade_out->value() > 0.35f) {
+        m_comfort_vignette_fade_out->value() = 0.25f;
+    }
+
+    if (m_comfort_vignette_begin_angle->value() <= 0.0f || m_comfort_vignette_begin_angle->value() > 25.0f) {
+        m_comfort_vignette_begin_angle->value() = 20.0f;
+    }
+
+    if (m_comfort_vignette_end_angle->value() <= 0.0f || m_comfort_vignette_end_angle->value() > 50.0f) {
+        m_comfort_vignette_end_angle->value() = 45.0f;
     }
 }
 
