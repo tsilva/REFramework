@@ -4208,8 +4208,8 @@ void VR::on_config_load(const utility::Config& cfg) {
         m_comfort_vignette_strength->value() = 1.0f;
     }
 
-    if (m_comfort_vignette_range->value() < 0.0f || m_comfort_vignette_range->value() > 100.0f || m_comfort_vignette_range->value() == 60.0f) {
-        m_comfort_vignette_range->value() = 70.0f;
+    if (m_comfort_vignette_range->value() < 0.0f || m_comfort_vignette_range->value() > 100.0f || m_comfort_vignette_range->value() == 60.0f || m_comfort_vignette_range->value() == 70.0f) {
+        m_comfort_vignette_range->value() = 80.0f;
     }
 
     if (m_comfort_vignette_fade_in->value() <= 0.0f || m_comfort_vignette_fade_in->value() > 0.15f) {

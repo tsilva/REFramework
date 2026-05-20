@@ -5,6 +5,7 @@
 namespace vrmod {
 void OverlayComponent::on_reset() {
     m_overlay_data = {};
+    m_overlay_mouse_down = false;
 }
 
 std::optional<std::string> OverlayComponent::on_initialize_openvr() {
@@ -12,6 +13,7 @@ std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     m_force_show_ui = false;
     m_was_menu_combo_down = false;
     m_suppress_hand_open_until_clear = false;
+    m_overlay_mouse_down = false;
 
     // create vr overlay
     auto overlay_error = vr::VROverlay()->CreateOverlay("REFramework", "REFramework", &m_overlay_handle);
@@ -43,8 +45,8 @@ std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0.0f, &pose, 1);
     vr::VROverlay()->SetOverlayTransformAbsolute(m_overlay_handle, vr::TrackingUniverseStanding, &pose.mDeviceToAbsoluteTracking);
 
-    // set overlay flag to receive smooth scroll events
-    overlay_error = vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_SendVRSmoothScrollEvents, true);
+    // Controller drag gestures can arrive as smooth scroll and pan the menu content.
+    overlay_error = vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_SendVRSmoothScrollEvents, false);
 
     if (overlay_error != vr::VROverlayError_None) {
         return "VROverlay failed to set overlay flag: " + std::string{vr::VROverlay()->GetOverlayErrorNameFromEnum(overlay_error)};
@@ -106,10 +108,12 @@ void OverlayComponent::update_input() {
             case vr::VREvent_MouseButtonDown:
                 m_initial_imgui_input_state.MouseDown[0] = true;
                 io.MouseDown[0] = true;
+                m_overlay_mouse_down = true;
                 break;
             case vr::VREvent_MouseButtonUp:
                 m_initial_imgui_input_state.MouseDown[0] = false;
                 io.MouseDown[0] = false;
+                m_overlay_mouse_down = false;
                 break;
             case vr::VREvent_MouseMove: {
                 const std::array<float, 2> raw_coords { event.data.mouse.x, event.data.mouse.y };
@@ -125,10 +129,10 @@ void OverlayComponent::update_input() {
                 io.MousePos = mouse_point;
             } break;
             case vr::VREvent_ScrollSmooth: {
-                m_initial_imgui_input_state.MouseWheelH += event.data.scroll.xdelta;
-                m_initial_imgui_input_state.MouseWheel += event.data.scroll.ydelta;
-                io.MouseWheelH = event.data.scroll.xdelta;
-                io.MouseWheel = event.data.scroll.ydelta;
+                m_initial_imgui_input_state.MouseWheelH = 0.0f;
+                m_initial_imgui_input_state.MouseWheel = 0.0f;
+                io.MouseWheelH = 0.0f;
+                io.MouseWheel = 0.0f;
             } break;
             default:
                 break;
@@ -195,21 +199,63 @@ void OverlayComponent::update_overlay() {
     // Fire an intersection test and enable the laser pointer if we're intersecting
     const auto& controllers = vr->get_controllers();
 
-    const auto is_menu_combo_down =
+    auto is_raw_trigger_down = [](vr::TrackedDeviceIndex_t controller_index) {
+        if (controller_index == vr::k_unTrackedDeviceIndexInvalid) {
+            return false;
+        }
+
+        vr::VRControllerState_t state{};
+        if (!vr::VRSystem()->GetControllerState(controller_index, &state, sizeof(state))) {
+            return false;
+        }
+
+        if ((state.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger)) != 0) {
+            return true;
+        }
+
+        for (auto i = 0; i < vr::k_unControllerStateAxisCount; ++i) {
+            const auto axis_type = vr::VRSystem()->GetInt32TrackedDeviceProperty(
+                controller_index,
+                static_cast<vr::ETrackedDeviceProperty>(vr::Prop_Axis0Type_Int32 + i)
+            );
+
+            if (axis_type == vr::k_eControllerAxis_Trigger && state.rAxis[i].x >= 0.75f) {
+                return true;
+            }
+        }
+
+        return state.rAxis[1].x >= 0.75f;
+    };
+
+    const auto is_left_action_trigger_down =
         controllers.size() >= 2 &&
-        vr->is_action_active(vr->get_action_trigger(), vr->get_left_joystick()) &&
+        vr->is_action_active(vr->get_action_trigger(), vr->get_left_joystick());
+    const auto is_right_action_trigger_down =
+        controllers.size() >= 2 &&
         vr->is_action_active(vr->get_action_trigger(), vr->get_right_joystick());
+    const auto is_left_raw_trigger_down =
+        controllers.size() >= 2 &&
+        is_raw_trigger_down(controllers[0]);
+    const auto is_right_raw_trigger_down =
+        controllers.size() >= 2 &&
+        is_raw_trigger_down(controllers[1]);
+    const auto is_left_trigger_down = is_left_action_trigger_down || is_left_raw_trigger_down;
+    const auto is_right_trigger_down = is_right_action_trigger_down || is_right_raw_trigger_down;
+    const auto is_menu_combo_down =
+        (is_left_trigger_down && is_right_trigger_down) ||
+        (g_framework->is_drawing_ui() && m_overlay_mouse_down && is_left_trigger_down);
     const auto menu_combo_pressed = is_menu_combo_down && !m_was_menu_combo_down;
     m_was_menu_combo_down = is_menu_combo_down;
 
     if (menu_combo_pressed) {
-        const auto should_open_ui = !g_framework->is_drawing_ui() && m_closed_ui && !m_force_show_ui;
+        const auto should_close_ui = g_framework->is_drawing_ui() || m_force_show_ui || !m_closed_ui;
+        const auto should_open_ui = !should_close_ui;
 
         m_force_show_ui = should_open_ui;
         m_closed_ui = !should_open_ui;
         m_just_opened_ui = should_open_ui;
-        m_just_closed_ui = !should_open_ui;
-        m_suppress_hand_open_until_clear = !should_open_ui;
+        m_just_closed_ui = should_close_ui;
+        m_suppress_hand_open_until_clear = should_close_ui;
 
         g_framework->set_draw_ui(should_open_ui);
         vr::VROverlay()->SetOverlayFlag(

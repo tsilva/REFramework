@@ -515,7 +515,7 @@ private:
     const ModSlider::Ptr m_snap_turn_threshold{ ModSlider::create(generate_name("SnapTurnThreshold"), 0.1f, 1.0f, 0.5f) };
     const ModToggle::Ptr m_comfort_vignette{ ModToggle::create(generate_name("ComfortVignette"), true) };
     const ModSlider::Ptr m_comfort_vignette_strength{ ModSlider::create(generate_name("ComfortVignetteStrength"), 0.05f, 1.0f, 1.0f) };
-    const ModSlider::Ptr m_comfort_vignette_range{ ModSlider::create(generate_name("ComfortVignetteRange"), 0.0f, 100.0f, 70.0f) };
+    const ModSlider::Ptr m_comfort_vignette_range{ ModSlider::create(generate_name("ComfortVignetteRange"), 0.0f, 100.0f, 80.0f) };
     const ModSlider::Ptr m_comfort_vignette_fade_in{ ModSlider::create(generate_name("ComfortVignetteFadeIn"), 0.05f, 2.0f, 0.08f) };
     const ModSlider::Ptr m_comfort_vignette_fade_out{ ModSlider::create(generate_name("ComfortVignetteFadeOut"), 0.05f, 2.0f, 0.25f) };
     const ModSlider::Ptr m_comfort_vignette_begin_angle{ ModSlider::create(generate_name("ComfortVignetteBeginAngle"), 1.0f, 89.0f, 24.0f) };
