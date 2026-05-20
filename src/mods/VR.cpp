@@ -1497,7 +1497,26 @@ void VR::update_snap_turn() {
     const auto angle = std::clamp(m_snap_turn_angle->value(), 15.0f, 180.0f);
     const auto turn = glm::angleAxis(glm::radians(direction * angle), Vector3f{0.0f, 1.0f, 0.0f});
 
-    set_rotation_offset(glm::normalize(turn * get_rotation_offset()));
+    const auto old_offset = get_rotation_offset();
+    const auto new_offset = glm::normalize(turn * old_offset);
+    const auto hmd_position = get_position(vr::k_unTrackedDeviceIndex_Hmd);
+
+    {
+        std::unique_lock _{ get_runtime()->pose_mtx };
+
+        auto old_relative_pos = hmd_position - m_standing_origin;
+        old_relative_pos.w = 0.0f;
+
+        auto new_relative_pos = glm::inverse(new_offset) * old_offset * old_relative_pos;
+        new_relative_pos.w = 0.0f;
+
+        auto new_standing_origin = hmd_position - new_relative_pos;
+        new_standing_origin.y = m_standing_origin.y;
+        new_standing_origin.w = m_standing_origin.w;
+        m_standing_origin = new_standing_origin;
+    }
+
+    set_rotation_offset(new_offset);
     m_last_controller_update = std::chrono::steady_clock::now();
     m_snap_turn_vignette_until = m_last_controller_update + std::chrono::milliseconds(120);
     m_was_snap_turn_active = true;
@@ -4063,6 +4082,20 @@ void VR::on_config_load(const utility::Config& cfg) {
     if (m_smooth_turn_speed->value() <= 0.0f) {
         m_smooth_turn_speed->value() = 0.5f;
     }
+
+#ifdef RE7
+    if (m_ui_scale_option->value() <= 0.0f || m_ui_scale_option->value() > 25.0f) {
+        m_ui_scale_option->value() = 12.0f;
+    }
+
+    if (m_ui_distance_option->value() <= 0.0f || m_ui_distance_option->value() > 10.0f) {
+        m_ui_distance_option->value() = 1.0f;
+    }
+
+    if (m_world_ui_scale_option->value() <= 0.0f || m_world_ui_scale_option->value() > 30.0f) {
+        m_world_ui_scale_option->value() = 15.0f;
+    }
+#endif
 
     if (m_comfort_vignette_strength->value() < 0.95f) {
         m_comfort_vignette_strength->value() = 1.0f;

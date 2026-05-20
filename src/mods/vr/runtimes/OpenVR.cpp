@@ -68,7 +68,11 @@ VRRuntime::Error OpenVR::consume_events(std::function<void(void*)> callback) {
             } break;
 
             case vr::VREvent_DashboardActivated: {
-                this->handle_pause = true;
+                if (this->is_startup_pause_grace_period()) {
+                    spdlog::info("VR: Ignoring startup VREvent_DashboardActivated");
+                } else {
+                    this->handle_pause = true;
+                }
             } break;
 
             default:

@@ -46,6 +46,11 @@ private:
     bool m_closed_ui{false};
     bool m_just_closed_ui{false};
     bool m_just_opened_ui{false};
+    bool m_force_show_ui{false};
+    bool m_was_menu_combo_down{false};
+    bool m_suppress_hand_open_until_clear{false};
+    bool m_overlay_mouse_down{false};
+    bool m_overlay_shown{false};
 
     void update_input();
     void update_overlay();

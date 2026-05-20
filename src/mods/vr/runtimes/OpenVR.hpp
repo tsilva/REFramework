@@ -2,6 +2,8 @@
 
 #include "VRRuntime.hpp"
 
+#include <chrono>
+
 namespace runtimes {
 struct OpenVR final : public VRRuntime {
     OpenVR() {
@@ -24,6 +26,11 @@ struct OpenVR final : public VRRuntime {
         return VRRuntime::ready() && this->is_hmd_active && this->got_first_poses;
     }
 
+    bool is_startup_pause_grace_period() const {
+        using namespace std::chrono_literals;
+        return !this->got_first_poses || std::chrono::steady_clock::now() - this->initialized_at < 5s;
+    }
+
     VRRuntime::Error synchronize_frame() override;
     VRRuntime::Error update_poses() override;
     VRRuntime::Error update_render_target_size() override;
@@ -38,6 +45,7 @@ struct OpenVR final : public VRRuntime {
 
     bool is_hmd_active{false};
     bool was_hmd_active{true};
+    std::chrono::steady_clock::time_point initialized_at{std::chrono::steady_clock::now()};
 
     uint32_t w{0};
     uint32_t h{0};
