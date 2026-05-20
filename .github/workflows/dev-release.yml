@@ -59,33 +59,25 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target REFramework
 
-      - name: Compress REFramework
+      - name: Package RE7 release
         run: |
-          echo ${{github.sha}} > ${{github.workspace}}/reframework_revision.txt
-          7z a ${{github.workspace}}/REFramework.zip ${{github.workspace}}/reframework_revision.txt
-          7z a ${{github.workspace}}/REFramework.zip ${{github.workspace}}/build/bin/REFramework/dinput8.dll
+          $packageDir = "${{github.workspace}}/build/package/RE7"
+          New-Item -ItemType Directory -Force -Path "$packageDir/reframework/autorun" | Out-Null
+          Copy-Item "${{github.workspace}}/build/bin/REFramework/dinput8.dll" "$packageDir/dinput8.dll"
+          Copy-Item "${{github.workspace}}/dependencies/openvr/bin/win64/openvr_api.dll" "$packageDir/openvr_api.dll"
+          Copy-Item "${{github.workspace}}/build/_deps/openxr-build/src/loader/${{env.BUILD_TYPE}}/openxr_loader.dll" "$packageDir/openxr_loader.dll"
+          [System.IO.File]::WriteAllText("$packageDir/reframework_revision.txt", "${{github.sha}}`r`n", [System.Text.UTF8Encoding]::new($false))
+          [System.IO.File]::WriteAllText("$packageDir/DELETE_OPENVR_API_DLL_IF_YOU_WANT_TO_USE_OPENXR", "none`r`n", [System.Text.UTF8Encoding]::new($false))
+          Copy-Item "${{github.workspace}}/scripts/*" "$packageDir/reframework/autorun" -Recurse
+          Push-Location $packageDir
+          7z a "${{github.workspace}}/RE7.zip" *
+          Pop-Location
 
-      - name: Compress VR prerequisites
-        run: |
-          echo none > ${{github.workspace}}/DELETE_OPENVR_API_DLL_IF_YOU_WANT_TO_USE_OPENXR
-          7z a ${{github.workspace}}/VR.zip ${{github.workspace}}/DELETE_OPENVR_API_DLL_IF_YOU_WANT_TO_USE_OPENXR
-          7z a ${{github.workspace}}/VR.zip ${{github.workspace}}/dependencies/openvr/bin/win64/openvr_api.dll
-          7z a ${{github.workspace}}/VR.zip ${{github.workspace}}/build/_deps/openxr-build/src/loader/${{env.BUILD_TYPE}}/openxr_loader.dll
-          7z a ${{github.workspace}}/VR.zip ${{github.workspace}}/scripts
-          7z rn ${{github.workspace}}/VR.zip scripts reframework/autorun
-
-      - name: Upload REFramework
+      - name: Upload RE7
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
-          name: REFramework
-          path: ${{github.workspace}}/REFramework.zip
-          if-no-files-found: error
-
-      - name: Upload VR
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
-        with:
-          name: VR
-          path: ${{github.workspace}}/VR.zip
+          name: RE7
+          path: ${{github.workspace}}/RE7.zip
           if-no-files-found: error
 
   nightly-push:
