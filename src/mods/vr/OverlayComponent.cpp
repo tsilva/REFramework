@@ -196,7 +196,9 @@ void OverlayComponent::update_overlay() {
 
     bool should_show_overlay = !m_closed_ui;
 
-    if (controllers.size() >= 2 && !vr->is_any_action_down()) {
+    const auto is_action_down = vr->is_any_action_down();
+
+    if (controllers.size() >= 2 && (m_closed_ui || !is_action_down)) {
         Matrix4x4f left_controller_world_transform{glm::identity<Matrix4x4f>()};
 
         // Attach the overlay to the left controller
@@ -257,21 +259,24 @@ void OverlayComponent::update_overlay() {
             if (vr::VROverlay()->ComputeOverlayIntersection(m_overlay_handle, &intersection_params, &intersection_results)) {
                 auto normal = Vector4f{intersection_results.vNormal.v[0], intersection_results.vNormal.v[1], intersection_results.vNormal.v[2], 1.0f};
                 normal = glm::inverse(glm::extractMatrixRotation(tip_world_transform)) * normal;
+                auto controller_intersected = false;
 
                 if (m_closed_ui) {
                     const auto u = ((intersection_results.vUVs.v[0] * m_overlay_data.last_render_target_width) - m_overlay_data.last_x) / m_overlay_data.last_width;
                     const auto v = ((m_overlay_data.last_render_target_height - (intersection_results.vUVs.v[1] * m_overlay_data.last_render_target_height)) - m_overlay_data.last_y) / m_overlay_data.last_height;
 
-                    any_intersected = u >= 0.25f &&
-                                    u <= 0.75f && 
-                                    v >= 0.25f && 
-                                    v <= 0.75f;
+                    controller_intersected = u >= 0.15f &&
+                                             u <= 0.85f &&
+                                             v >= 0.15f &&
+                                             v <= 0.85f;
 
                     // Make sure the intersection hit the front of the overlay, not the back
-                    any_intersected = any_intersected && normal.z > 0.0f;
+                    controller_intersected = controller_intersected && normal.z > 0.0f;
                 } else {
-                    any_intersected = normal.z > 0.0f;
+                    controller_intersected = normal.z > 0.0f;
                 }
+
+                any_intersected = any_intersected || controller_intersected;
             }
         }
 
@@ -294,10 +299,10 @@ void OverlayComponent::update_overlay() {
                     const auto u = ((intersection_results.vUVs.v[0] * m_overlay_data.last_render_target_width) - m_overlay_data.last_x) / m_overlay_data.last_width;
                     const auto v = ((m_overlay_data.last_render_target_height - (intersection_results.vUVs.v[1] * m_overlay_data.last_render_target_height)) - m_overlay_data.last_y) / m_overlay_data.last_height;
 
-                    any_intersected = u >= 0.25f &&
-                                    u <= 0.75f && 
-                                    v >= 0.25f && 
-                                    v <= 0.75f;
+                    any_intersected = u >= 0.15f &&
+                                    u <= 0.85f &&
+                                    v >= 0.15f &&
+                                    v <= 0.85f;
                 }
 
                 auto normal = Vector4f{intersection_results.vNormal.v[0], intersection_results.vNormal.v[1], intersection_results.vNormal.v[2], 1.0f};
