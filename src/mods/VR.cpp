@@ -753,6 +753,86 @@ std::optional<std::string> VR::initialize_openvr() {
         m_d3d11.on_reset(this);
     }
 
+    struct DashboardLaunchGuard {
+        DashboardLaunchGuard() {
+            vr::EVRInitError init_error{vr::VRInitError_None};
+            const auto utility_vr = vr::VR_Init(&init_error, vr::VRApplication_Utility);
+
+            if (init_error != vr::VRInitError_None || utility_vr == nullptr) {
+                spdlog::warn(
+                    "[VR] Could not initialize OpenVR utility context for dashboard launch guard: {}",
+                    vr::VR_GetVRInitErrorAsEnglishDescription(init_error)
+                );
+                return;
+            }
+
+            auto settings = vr::VRSettings();
+
+            if (settings != nullptr) {
+                vr::EVRSettingsError settings_error{vr::VRSettingsError_None};
+                m_original_start_dashboard = settings->GetBool(
+                    vr::k_pch_SteamVR_Section,
+                    vr::k_pch_SteamVR_StartDashboardFromAppLaunch_Bool,
+                    &settings_error
+                );
+
+                if (settings_error == vr::VRSettingsError_None) {
+                    m_has_original_start_dashboard = true;
+
+                    if (m_original_start_dashboard) {
+                        settings->SetBool(
+                            vr::k_pch_SteamVR_Section,
+                            vr::k_pch_SteamVR_StartDashboardFromAppLaunch_Bool,
+                            false,
+                            &settings_error
+                        );
+
+                        if (settings_error == vr::VRSettingsError_None) {
+                            spdlog::info("[VR] Temporarily disabled SteamVR dashboard launch for scene init");
+                            m_changed_start_dashboard = true;
+                        } else {
+                            spdlog::warn("[VR] Failed to disable SteamVR dashboard launch: {}", (int32_t)settings_error);
+                        }
+                    }
+                } else {
+                    spdlog::warn("[VR] Failed to read SteamVR dashboard launch setting: {}", (int32_t)settings_error);
+                }
+            }
+
+            vr::VR_Shutdown();
+            m_initialized_utility = true;
+        }
+
+        ~DashboardLaunchGuard() {
+            if (!m_changed_start_dashboard || !m_has_original_start_dashboard) {
+                return;
+            }
+
+            auto settings = vr::VRSettings();
+
+            if (settings == nullptr) {
+                return;
+            }
+
+            vr::EVRSettingsError settings_error{vr::VRSettingsError_None};
+            settings->SetBool(
+                vr::k_pch_SteamVR_Section,
+                vr::k_pch_SteamVR_StartDashboardFromAppLaunch_Bool,
+                m_original_start_dashboard,
+                &settings_error
+            );
+
+            if (settings_error != vr::VRSettingsError_None) {
+                spdlog::warn("[VR] Failed to restore SteamVR dashboard launch setting: {}", (int32_t)settings_error);
+            }
+        }
+
+        bool m_initialized_utility{false};
+        bool m_has_original_start_dashboard{false};
+        bool m_original_start_dashboard{false};
+        bool m_changed_start_dashboard{false};
+    } dashboard_launch_guard{};
+
     m_openvr->needs_pose_update = true;
     m_openvr->got_first_poses = false;
     m_openvr->is_hmd_active = true;
@@ -1611,6 +1691,7 @@ void VR::update_action_states() {
 
     update_snap_turn();
     update_comfort_vignette();
+    update_openxr_menu_shortcut();
 }
 
 bool VR::is_snap_turn_axis_active(const Vector2f& axis) const {
@@ -1713,6 +1794,26 @@ void VR::update_comfort_vignette() {
     m_last_comfort_vignette_target = target;
 
     apply_comfort_vignette(std::clamp(m_comfort_vignette_amount * m_comfort_vignette_strength->value(), 0.0f, 1.0f));
+}
+
+void VR::update_openxr_menu_shortcut() {
+    if (!get_runtime()->is_openxr() || !get_runtime()->ready() || m_controllers.empty()) {
+        m_was_openxr_menu_combo_down = false;
+        return;
+    }
+
+    const auto is_menu_combo_down =
+        is_action_active(m_action_trigger, m_left_joystick) &&
+        is_action_active(m_action_trigger, m_right_joystick);
+    const auto menu_combo_pressed = is_menu_combo_down && !m_was_openxr_menu_combo_down;
+    m_was_openxr_menu_combo_down = is_menu_combo_down;
+
+    if (!menu_combo_pressed) {
+        return;
+    }
+
+    m_last_controller_update = std::chrono::steady_clock::now();
+    g_framework->set_draw_ui(!g_framework->is_drawing_ui());
 }
 
 float VR::get_comfort_vignette_end_angle() const {
@@ -3660,8 +3761,12 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
     const auto is_change_ammo_down = is_action_active(m_action_re2_change_ammo, m_left_joystick) || is_action_active(m_action_re2_change_ammo, m_right_joystick);
 	const auto is_toggle_flashlight_down = is_action_active(m_action_re2_toggle_flashlight, m_left_joystick);
 
-    const auto is_left_system_button_down = is_action_active(m_action_system_button, m_left_joystick);
-    const auto is_right_system_button_down = is_action_active(m_action_system_button, m_right_joystick);
+    const auto suppress_startup_system_pause =
+        get_runtime()->is_openvr() &&
+        m_openvr != nullptr &&
+        m_openvr->is_startup_pause_grace_period();
+    const auto is_left_system_button_down = !suppress_startup_system_pause && is_action_active(m_action_system_button, m_left_joystick);
+    const auto is_right_system_button_down = !suppress_startup_system_pause && is_action_active(m_action_system_button, m_right_joystick);
 
     
     

@@ -6,14 +6,19 @@ namespace vrmod {
 void OverlayComponent::on_reset() {
     m_overlay_data = {};
     m_overlay_mouse_down = false;
+    m_overlay_shown = false;
 }
 
 std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     m_overlay_data = {};
+    m_closed_ui = true;
+    m_just_closed_ui = true;
+    m_just_opened_ui = false;
     m_force_show_ui = false;
     m_was_menu_combo_down = false;
     m_suppress_hand_open_until_clear = false;
     m_overlay_mouse_down = false;
+    m_overlay_shown = false;
 
     // create vr overlay
     auto overlay_error = vr::VROverlay()->CreateOverlay("REFramework", "REFramework", &m_overlay_handle);
@@ -21,9 +26,6 @@ std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     if (overlay_error != vr::VROverlayError_None) {
         return "VROverlay failed to create overlay: " + std::string{vr::VROverlay()->GetOverlayErrorNameFromEnum(overlay_error)};
     }
-
-    // set overlay to visible
-    vr::VROverlay()->ShowOverlay(m_overlay_handle);
 
     overlay_error = vr::VROverlay()->SetOverlayWidthInMeters(m_overlay_handle, 0.25f);
 
@@ -51,6 +53,10 @@ std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     if (overlay_error != vr::VROverlayError_None) {
         return "VROverlay failed to set overlay flag: " + std::string{vr::VROverlay()->GetOverlayErrorNameFromEnum(overlay_error)};
     }
+
+    vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_NoDashboardTab, true);
+    vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_VisibleInDashboard, false);
+    vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_MakeOverlaysInteractiveIfVisible, false);
 
     spdlog::info("Made overlay with handle {}", m_overlay_handle);
 
@@ -146,6 +152,11 @@ void OverlayComponent::update_overlay() {
     }
 
     auto vr = VR::get();
+
+    if (!m_overlay_shown && vr->get_runtime()->ready()) {
+        vr::VROverlay()->ShowOverlay(m_overlay_handle);
+        m_overlay_shown = true;
+    }
 
     const auto is_d3d11 = g_framework->get_renderer_type() == REFramework::RendererType::D3D11;
 

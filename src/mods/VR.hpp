@@ -310,6 +310,7 @@ private:
     void update_action_states();
     void update_snap_turn();
     void update_comfort_vignette();
+    void update_openxr_menu_shortcut();
     void apply_comfort_vignette(float amount);
     float get_comfort_vignette_begin_angle() const;
     float get_comfort_vignette_end_angle() const;
@@ -395,6 +396,7 @@ private:
 
     bool m_was_firstperson_toggle_down{false};
     bool m_was_flashlight_toggle_down{false};
+    bool m_was_openxr_menu_combo_down{false};
     
     
     std::unordered_map<std::string, std::reference_wrapper<vr::VRActionHandle_t>> m_action_handles {
