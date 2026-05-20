@@ -307,7 +307,7 @@ bool D3D11Component::setup_comfort_vignette() {
 }
 
 void D3D11Component::draw_comfort_vignette(VR* vr, ID3D11Texture2D* backbuffer) {
-    if (backbuffer == nullptr || !vr->m_comfort_vignette->value() || vr->m_comfort_vignette_amount <= 0.01f) {
+    if (backbuffer == nullptr || !vr->m_comfort_vignette->value() || vr->m_comfort_vignette_range->value() <= 0.01f || vr->m_comfort_vignette_amount <= 0.01f) {
         return;
     }
 
@@ -331,8 +331,8 @@ void D3D11Component::draw_comfort_vignette(VR* vr, ID3D11Texture2D* backbuffer) 
     }
 
     const auto amount = std::clamp(vr->m_comfort_vignette_amount * vr->m_comfort_vignette_strength->value(), 0.0f, 1.0f);
-    const auto begin_angle = std::clamp(vr->m_comfort_vignette_begin_angle->value(), 1.0f, 89.0f);
-    const auto end_angle = std::clamp(std::max(vr->m_comfort_vignette_end_angle->value(), begin_angle + 1.0f), 2.0f, 89.0f);
+    const auto begin_angle = vr->get_comfort_vignette_begin_angle();
+    const auto end_angle = vr->get_comfort_vignette_end_angle();
     const auto max_inner_width = std::clamp((begin_angle / 89.0f) * 0.5f, 0.01f, 0.45f);
     const auto max_outer_width = std::clamp((end_angle / 89.0f) * 0.5f, max_inner_width + 0.01f, 0.5f);
     const auto inner_width = std::max(max_inner_width * amount, 0.001f);

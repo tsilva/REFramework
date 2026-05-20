@@ -307,6 +307,8 @@ bool begin_window(const char* name, sol::object open_obj, ImGuiWindowFlags flags
         name = "";
     }
 
+    flags &= ~(ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
+
     bool open = true;
     bool* open_p = nullptr;
 
@@ -332,6 +334,8 @@ bool begin_child_window(const char* name, sol::object size_obj, sol::object bord
     if (name == nullptr) {
         name = "";
     }
+
+    flags &= ~(ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
 
     ImVec2 size{0, 0};
     bool border{false};

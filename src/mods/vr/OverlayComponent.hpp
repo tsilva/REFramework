@@ -49,6 +49,7 @@ private:
     bool m_just_opened_ui{false};
     bool m_force_show_ui{false};
     bool m_was_menu_combo_down{false};
+    bool m_suppress_hand_open_until_clear{false};
 
     void update_input();
     void update_overlay();

@@ -1667,6 +1667,7 @@ void VR::update_snap_turn() {
 
     set_rotation_offset(new_offset);
     m_last_controller_update = std::chrono::steady_clock::now();
+    m_snap_turn_vignette_until = m_last_controller_update + std::chrono::milliseconds(120);
     m_was_snap_turn_active = true;
 }
 
@@ -1688,9 +1689,14 @@ void VR::update_comfort_vignette() {
     }
 
     const auto axis = get_left_stick_axis();
+    const auto right_axis = get_right_stick_axis();
     const auto deadzone = std::clamp(m_joystick_deadzone->value(), 0.01f, 0.9f);
     const auto magnitude = std::min(std::sqrt((axis.x * axis.x) + (axis.y * axis.y)), 1.0f);
-    const auto target = magnitude > deadzone ? (magnitude - deadzone) / (1.0f - deadzone) : 0.0f;
+    const auto movement_target = magnitude > deadzone ? (magnitude - deadzone) / (1.0f - deadzone) : 0.0f;
+    const auto turn_axis = std::abs(right_axis.x);
+    const auto turn_target = turn_axis > deadzone && turn_axis > std::abs(right_axis.y) ? (turn_axis - deadzone) / (1.0f - deadzone) : 0.0f;
+    const auto snap_turn_target = now < m_snap_turn_vignette_until ? 1.0f : 0.0f;
+    const auto target = std::max({ movement_target, turn_target, snap_turn_target });
     const auto fade_in = std::max(m_comfort_vignette_fade_in->value(), 0.01f);
     const auto fade_out = std::max(m_comfort_vignette_fade_out->value(), 0.01f);
     const auto sudden_movement = target >= 0.85f || (target - m_last_comfort_vignette_target) >= 0.35f;
@@ -1707,6 +1713,27 @@ void VR::update_comfort_vignette() {
     m_last_comfort_vignette_target = target;
 
     apply_comfort_vignette(std::clamp(m_comfort_vignette_amount * m_comfort_vignette_strength->value(), 0.0f, 1.0f));
+}
+
+float VR::get_comfort_vignette_end_angle() const {
+    const auto range = std::clamp(m_comfort_vignette_range->value(), 0.0f, 100.0f) / 100.0f;
+    return std::clamp(range * 89.0f, 2.0f, 89.0f);
+}
+
+float VR::get_comfort_vignette_begin_angle() const {
+    const auto range = std::clamp(m_comfort_vignette_range->value(), 0.0f, 100.0f) / 100.0f;
+    const auto end_angle = get_comfort_vignette_end_angle();
+    constexpr auto default_ratio = 24.0f / 54.0f;
+    constexpr auto maximum_ratio = 0.94f;
+
+    auto ratio = default_ratio;
+
+    if (range > 0.6f) {
+        const auto blend = (range - 0.6f) / 0.4f;
+        ratio = default_ratio + ((maximum_ratio - default_ratio) * blend);
+    }
+
+    return std::clamp(end_angle * ratio, 1.0f, std::max(end_angle - 1.0f, 1.0f));
 }
 
 void VR::apply_comfort_vignette(float amount) {
@@ -1736,9 +1763,9 @@ void VR::apply_comfort_vignette(float amount) {
         return;
     }
 
-    const auto active = amount > 0.01f;
-    const auto begin_angle = std::clamp(m_comfort_vignette_begin_angle->value(), 1.0f, 89.0f);
-    const auto end_angle = std::clamp(std::max(m_comfort_vignette_end_angle->value(), begin_angle + 1.0f), 2.0f, 89.0f);
+    const auto active = amount > 0.01f && m_comfort_vignette_range->value() > 0.01f;
+    const auto begin_angle = get_comfort_vignette_begin_angle();
+    const auto end_angle = get_comfort_vignette_end_angle();
     const auto edge_begin = 89.0f + ((begin_angle - 89.0f) * amount);
     const auto edge_end = 89.0f + ((end_angle - 89.0f) * amount);
 
@@ -2747,8 +2774,8 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
                 static auto ui_world_pos_attach_typedef = sdk::find_type_definition("app.UIWorldPosAttach");
 #endif
 
-                auto ui_scale = m_ui_scale_option->value();
-                const auto world_ui_scale = m_world_ui_scale_option->value();
+                auto ui_scale = std::clamp(m_ui_scale_option->value(), 1.0f, 25.0f);
+                const auto world_ui_scale = std::clamp(m_world_ui_scale_option->value(), 1.0f, 30.0f);
 
                 auto& restore_data = g_elements_to_reset.emplace_back(std::make_unique<GUIRestoreData>());
                 auto original_game_object_pos = sdk::get_transform_position(game_object->transform);
@@ -2890,7 +2917,7 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
                         glm::quat wanted_rotation{};
                         
                         bool wants_face_glue = false;
-                        auto ui_distance = m_ui_distance_option->value();
+                        auto ui_distance = std::clamp(m_ui_distance_option->value(), 0.01f, 10.0f);
 
                         switch (name_hash) {
                         case "damage_ui2102"_fnv:
@@ -4051,14 +4078,13 @@ void VR::on_draw_ui() {
         m_snap_turn_threshold->draw("Snap Turn Threshold");
     }
 
-    m_comfort_vignette->draw("Movement Vignette");
+    m_comfort_vignette->draw("Movement/Turn Vignette");
 
     if (m_comfort_vignette->value()) {
+        m_comfort_vignette_range->draw("Vignette Range");
         m_comfort_vignette_strength->draw("Vignette Strength");
         m_comfort_vignette_fade_in->draw("Vignette Fade In");
         m_comfort_vignette_fade_out->draw("Vignette Fade Out");
-        m_comfort_vignette_begin_angle->draw("Vignette Begin Angle");
-        m_comfort_vignette_end_angle->draw("Vignette End Angle");
         ImGui::Text("Vignette Amount: %.2f", m_comfort_vignette_amount);
     }
 
@@ -4162,10 +4188,28 @@ void VR::on_config_load(const utility::Config& cfg) {
         m_snap_turn_threshold->value() = 0.5f;
     }
 
+#ifdef RE7
+    if (m_ui_scale_option->value() <= 0.0f || m_ui_scale_option->value() > 25.0f) {
+        m_ui_scale_option->value() = 12.0f;
+    }
+
+    if (m_ui_distance_option->value() <= 0.0f || m_ui_distance_option->value() > 10.0f) {
+        m_ui_distance_option->value() = 1.0f;
+    }
+
+    if (m_world_ui_scale_option->value() <= 0.0f || m_world_ui_scale_option->value() > 30.0f) {
+        m_world_ui_scale_option->value() = 15.0f;
+    }
+#endif
+
     m_comfort_vignette->value() = true;
 
     if (m_comfort_vignette_strength->value() < 0.95f) {
         m_comfort_vignette_strength->value() = 1.0f;
+    }
+
+    if (m_comfort_vignette_range->value() < 0.0f || m_comfort_vignette_range->value() > 100.0f || m_comfort_vignette_range->value() == 60.0f) {
+        m_comfort_vignette_range->value() = 70.0f;
     }
 
     if (m_comfort_vignette_fade_in->value() <= 0.0f || m_comfort_vignette_fade_in->value() > 0.15f) {
@@ -4176,12 +4220,12 @@ void VR::on_config_load(const utility::Config& cfg) {
         m_comfort_vignette_fade_out->value() = 0.25f;
     }
 
-    if (m_comfort_vignette_begin_angle->value() <= 0.0f || m_comfort_vignette_begin_angle->value() > 25.0f) {
-        m_comfort_vignette_begin_angle->value() = 20.0f;
+    if (m_comfort_vignette_begin_angle->value() <= 0.0f || m_comfort_vignette_begin_angle->value() > 30.0f) {
+        m_comfort_vignette_begin_angle->value() = 24.0f;
     }
 
-    if (m_comfort_vignette_end_angle->value() <= 0.0f || m_comfort_vignette_end_angle->value() > 50.0f) {
-        m_comfort_vignette_end_angle->value() = 45.0f;
+    if (m_comfort_vignette_end_angle->value() <= 0.0f || m_comfort_vignette_end_angle->value() > 60.0f) {
+        m_comfort_vignette_end_angle->value() = 54.0f;
     }
 }
 

@@ -11,6 +11,7 @@ std::optional<std::string> OverlayComponent::on_initialize_openvr() {
     m_overlay_data = {};
     m_force_show_ui = false;
     m_was_menu_combo_down = false;
+    m_suppress_hand_open_until_clear = false;
 
     // create vr overlay
     auto overlay_error = vr::VROverlay()->CreateOverlay("REFramework", "REFramework", &m_overlay_handle);
@@ -202,16 +203,19 @@ void OverlayComponent::update_overlay() {
     m_was_menu_combo_down = is_menu_combo_down;
 
     if (menu_combo_pressed) {
-        m_force_show_ui = !m_force_show_ui;
-        m_closed_ui = !m_force_show_ui;
-        m_just_opened_ui = m_force_show_ui;
-        m_just_closed_ui = !m_force_show_ui;
+        const auto should_open_ui = !g_framework->is_drawing_ui() && m_closed_ui && !m_force_show_ui;
 
-        g_framework->set_draw_ui(m_force_show_ui);
+        m_force_show_ui = should_open_ui;
+        m_closed_ui = !should_open_ui;
+        m_just_opened_ui = should_open_ui;
+        m_just_closed_ui = !should_open_ui;
+        m_suppress_hand_open_until_clear = !should_open_ui;
+
+        g_framework->set_draw_ui(should_open_ui);
         vr::VROverlay()->SetOverlayFlag(
             m_overlay_handle,
             vr::VROverlayFlags::VROverlayFlags_MakeOverlaysInteractiveIfVisible,
-            m_force_show_ui
+            should_open_ui
         );
     }
 
@@ -220,6 +224,7 @@ void OverlayComponent::update_overlay() {
         m_closed_ui = true;
         m_just_opened_ui = false;
         m_just_closed_ui = true;
+        m_suppress_hand_open_until_clear = true;
 
         vr::VROverlay()->SetOverlayFlag(
             m_overlay_handle,
@@ -344,12 +349,21 @@ void OverlayComponent::update_overlay() {
             }
         }
 
+        if (m_suppress_hand_open_until_clear) {
+            if (any_intersected) {
+                any_intersected = false;
+            } else {
+                m_suppress_hand_open_until_clear = false;
+            }
+        }
+
         // set overlay flag
         if (any_intersected) {
             should_show_overlay = true;
             vr::VROverlay()->SetOverlayFlag(m_overlay_handle, vr::VROverlayFlags::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true);
 
             g_framework->set_draw_ui(true);
+            m_suppress_hand_open_until_clear = false;
 
             if (m_closed_ui) {
                 m_just_opened_ui = true;
