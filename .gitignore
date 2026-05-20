@@ -1,6 +1,9 @@
 .vs/
 .vscode/
-build/
+
+# Local deterministic build output. Use dev/build-dev.ps1.
+/build/
+/out/
 build64_all/
 build64/
 build64_re2/
@@ -8,6 +11,7 @@ build64_re3/
 build64_re4/
 build64_re8/
 build64_dmc5
+build64_*/
 src/sdk/generated
 cmake-build*
 .idea/
