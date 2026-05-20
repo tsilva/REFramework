@@ -310,6 +310,7 @@ private:
     bool is_any_action_down();
     void update_hmd_state();
     void update_action_states();
+    void update_snap_turn();
     void update_camera(); // if not in firstperson mode
     void update_camera_origin(); // every frame
     void update_audio_camera();
@@ -325,6 +326,8 @@ private:
     // By setting things like input flags based on controller state
     void openvr_input_to_re2_re3(REManagedObject* input_system);
     void openvr_input_to_re_engine(); // generic, can be used on any game
+    bool is_snap_turn_axis_active(const Vector2f& axis) const;
+    Vector2f apply_smooth_turn_speed(Vector2f axis) const;
 
     // Sets overlay layer to return instantly
     // causes world-space gui elements to render properly
@@ -428,6 +431,7 @@ private:
     uint32_t m_backbuffer_inconsistency_start{};
     std::chrono::nanoseconds m_last_input_delay{};
     std::chrono::nanoseconds m_avg_input_delay{};
+    bool m_was_snap_turn_active{false};
 
     HANDLE m_present_finished_event{CreateEvent(nullptr, TRUE, FALSE, nullptr)};
 
@@ -501,6 +505,10 @@ private:
     const ModSlider::Ptr m_view_distance{ ModSlider::create(generate_name("CustomViewDistance"), 10.0f, 3000.0f, 500.0f) };
     const ModSlider::Ptr m_motion_controls_inactivity_timer{ ModSlider::create(generate_name("MotionControlsInactivityTimer"), 30.0f, 100.0f, 30.0f) };
     const ModSlider::Ptr m_joystick_deadzone{ ModSlider::create(generate_name("JoystickDeadzone"), 0.01f, 0.9f, 0.15f) };
+    const ModToggle::Ptr m_snap_turn{ ModToggle::create(generate_name("SnapTurn"), true) };
+    const ModSlider::Ptr m_snap_turn_angle{ ModSlider::create(generate_name("SnapTurnAngle"), 15.0f, 180.0f, 45.0f) };
+    const ModSlider::Ptr m_snap_turn_threshold{ ModSlider::create(generate_name("SnapTurnThreshold"), 0.1f, 1.0f, 0.5f) };
+    const ModSlider::Ptr m_smooth_turn_speed{ ModSlider::create(generate_name("SmoothTurnSpeed"), 0.1f, 1.0f, 0.5f) };
     const ModSlider::Ptr m_ui_scale_option{ ModSlider::create(generate_name("2DUIScale"), 1.0f, 100.0f, 12.0f) };
     const ModSlider::Ptr m_ui_distance_option{ ModSlider::create(generate_name("2DUIDistance"), 0.01f, 100.0f, 1.0f) };
     const ModSlider::Ptr m_world_ui_scale_option{ ModSlider::create(generate_name("WorldSpaceUIScale"), 1.0f, 100.0f, 15.0f) };
@@ -555,6 +563,10 @@ private:
         *m_view_distance,
         *m_motion_controls_inactivity_timer,
         *m_joystick_deadzone,
+        *m_snap_turn,
+        *m_snap_turn_angle,
+        *m_snap_turn_threshold,
+        *m_smooth_turn_speed,
         *m_force_fps_settings,
         *m_force_aa_settings,
         *m_force_motionblur_settings,

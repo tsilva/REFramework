@@ -61,13 +61,15 @@ private:
     const ModToggle::Ptr m_hide_arms{ ModToggle::create(generate_name("HideArms"), false) };
     const ModToggle::Ptr m_hide_upper_body_cutscenes{ ModToggle::create(generate_name("AutoHideUpperBodyCutscenes"), true) };
     const ModToggle::Ptr m_hide_lower_body_cutscenes{ ModToggle::create(generate_name("AutoHideLowerBodyCutscenes"), true) };
+    const ModToggle::Ptr m_smooth_cutscene_vertical_camera{ ModToggle::create(generate_name("SmoothCutsceneVerticalCamera"), true) };
 
     ValueList m_options {
         *m_hide_upper_body,
         *m_hide_lower_body,
         *m_hide_arms,
         *m_hide_upper_body_cutscenes,
-        *m_hide_lower_body_cutscenes
+        *m_hide_lower_body_cutscenes,
+        *m_smooth_cutscene_vertical_camera
     };
 
     enum PlayerType {
@@ -155,6 +157,8 @@ private:
         bool last_hmd_active_state{false};
         bool was_vert_limited{false};
         bool last_cutscene_state{false};
+        bool has_cutscene_damped_y{false};
+        float cutscene_damped_y{0.0f};
         float last_gui_dot{0.0f};
         glm::quat last_gui_quat{glm::identity<glm::quat>()};
         std::chrono::steady_clock::time_point last_time_not_maximum_controllable{};

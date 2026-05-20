@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <sdk/SceneManager.hpp>
 #include <sdk/MurmurHash.hpp>
 #include <sdk/Application.hpp>
@@ -124,6 +126,7 @@ void RE8VR::on_draw_ui() {
     m_hide_arms->draw("Hide Arms");
     m_hide_upper_body_cutscenes->draw("Auto Hide Upper Body in Cutscenes");
     m_hide_lower_body_cutscenes->draw("Auto Hide Lower Body in Cutscenes");
+    m_smooth_cutscene_vertical_camera->draw("Smooth Cutscene Vertical Camera");
 }
 
 void RE8VR::on_pre_application_entry(void* entry, const char* name, size_t hash) {
@@ -168,6 +171,7 @@ void RE8VR::reset_data() {
     m_right_hand_ik_transform = nullptr;
     m_left_hand_ik_object = nullptr;
     m_right_hand_ik_object = nullptr;
+    m_camera_data.has_cutscene_damped_y = false;
 }
 
 void RE8VR::set_hand_joints_to_tpose(::REManagedObject* hand_ik) {
@@ -692,6 +696,23 @@ void RE8VR::fix_player_camera(::REManagedObject* player_camera) {
 
     auto camera_rot_pre_hmd = camera_rot;
     auto camera_pos_pre_hmd = camera_pos;
+    auto cutscene_camera_pos = camera_pos_pre_hmd;
+
+    if (m_smooth_cutscene_vertical_camera->value() && m_is_in_cutscene) {
+        if (!m_camera_data.has_cutscene_damped_y || !m_camera_data.last_cutscene_state) {
+            m_camera_data.cutscene_damped_y = camera_pos_pre_hmd.y;
+            m_camera_data.has_cutscene_damped_y = true;
+        } else {
+            constexpr auto damping_speed = 8.0f;
+            const auto alpha = std::clamp(m_delta_time * damping_speed, 0.0f, 1.0f);
+
+            m_camera_data.cutscene_damped_y += (camera_pos_pre_hmd.y - m_camera_data.cutscene_damped_y) * alpha;
+        }
+
+        cutscene_camera_pos.y = m_camera_data.cutscene_damped_y;
+    } else {
+        m_camera_data.has_cutscene_damped_y = false;
+    }
 
     auto camera_rot_no_shake_field = sdk::get_object_field<glm::quat>(player_camera, "<CameraRotation>k__BackingField");
 
@@ -719,7 +740,7 @@ void RE8VR::fix_player_camera(::REManagedObject* player_camera) {
     
     // Joint is used for the actual final rendering of the game world
     if (m_is_in_cutscene) {
-        sdk::set_joint_position(camera_joint, camera_pos_pre_hmd);
+        sdk::set_joint_position(camera_joint, cutscene_camera_pos);
         sdk::set_joint_rotation(camera_joint, camera_rot_pre_hmd);
     } else {
         const auto rot_delta = glm::inverse(camera_rot_pre_hmd) * camera_rot;
