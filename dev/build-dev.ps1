@@ -7,7 +7,8 @@ param(
     [switch] $Clean,
     [switch] $AllowDirty,
     [switch] $SkipSubmodules,
-    [switch] $SkipCmkrGeneration
+    [switch] $SkipCmkrGeneration,
+    [switch] $SkipPackage
 )
 
 $ErrorActionPreference = "Stop"
@@ -60,6 +61,51 @@ function Invoke-CommandChecked {
     if ($LASTEXITCODE -ne 0) {
         throw "$Command $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
     }
+}
+
+function Add-ZipDirectory {
+    param(
+        [System.IO.Compression.ZipArchive] $Archive,
+        [string] $EntryName
+    )
+
+    if (-not $EntryName.EndsWith("/")) {
+        $EntryName = "$EntryName/"
+    }
+
+    $null = $Archive.CreateEntry($EntryName)
+}
+
+function Add-ZipFile {
+    param(
+        [System.IO.Compression.ZipArchive] $Archive,
+        [string] $SourcePath,
+        [string] $EntryName
+    )
+
+    if (-not (Test-Path $SourcePath)) {
+        throw "Package source file not found: $SourcePath"
+    }
+
+    $entry = $Archive.CreateEntry($EntryName, [System.IO.Compression.CompressionLevel]::Optimal)
+    $entryStream = $entry.Open()
+    $sourceStream = [System.IO.File]::OpenRead($SourcePath)
+
+    try {
+        $sourceStream.CopyTo($entryStream)
+    } finally {
+        $sourceStream.Dispose()
+        $entryStream.Dispose()
+    }
+}
+
+function New-TextFileNoBom {
+    param(
+        [string] $Path,
+        [string] $Contents
+    )
+
+    [System.IO.File]::WriteAllText($Path, $Contents, [System.Text.UTF8Encoding]::new($false))
 }
 
 Set-Location $RepoRoot
@@ -186,3 +232,72 @@ Invoke-CommandChecked $CMake $buildArgs
 $outputDir = Join-Path $BuildDir "bin\REFramework"
 Write-Host "Built target '$Target' ($Configuration) in $BuildDir"
 Write-Host "Expected REFramework output folder: $outputDir"
+
+if (-not $SkipPackage -and $Target -eq "REFramework") {
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $packageDir = Join-Path $BuildDir "package\RE7"
+    $zipPath = Join-Path $BuildDir "RE7.zip"
+    $openxrLoader = Join-Path $BuildDir "_deps\openxr-build\src\loader\$Configuration\openxr_loader.dll"
+    $openvrApi = Join-Path $BuildDir "bin\openvr_api.dll"
+    $dinput = Join-Path $outputDir "dinput8.dll"
+    $revisionFile = Join-Path $packageDir "reframework_revision.txt"
+    $openxrMarker = Join-Path $packageDir "DELETE_OPENVR_API_DLL_IF_YOU_WANT_TO_USE_OPENXR"
+
+    if (Test-Path $packageDir) {
+        Remove-Item -LiteralPath $packageDir -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+    New-TextFileNoBom $revisionFile "$commitHash`r`n"
+    New-TextFileNoBom $openxrMarker "none`r`n"
+
+    if (Test-Path $zipPath) {
+        Remove-Item -LiteralPath $zipPath -Force
+    }
+
+    $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+
+    try {
+        Add-ZipFile $zip $openxrMarker "DELETE_OPENVR_API_DLL_IF_YOU_WANT_TO_USE_OPENXR"
+        Add-ZipFile $zip $dinput "dinput8.dll"
+        Add-ZipFile $zip $openvrApi "openvr_api.dll"
+        Add-ZipFile $zip $openxrLoader "openxr_loader.dll"
+        Add-ZipDirectory $zip "reframework/autorun"
+
+        foreach ($script in @(
+            "re2_sharpness_removal.lua",
+            "re2_smooth_movement.lua",
+            "re2_vr_crosshair.lua",
+            "re2_vr_grenade.lua",
+            "re2_vr_melee.lua",
+            "re4_vr_crosshair.lua",
+            "re8_vr.lua"
+        )) {
+            Add-ZipFile $zip (Join-Path $RepoRoot "scripts\$script") "reframework/autorun/$script"
+        }
+
+        Add-ZipDirectory $zip "reframework/autorun/utility"
+
+        foreach ($script in @(
+            "GameObject.lua",
+            "ManagedObjectDict.lua",
+            "RE2.lua",
+            "RE4.lua",
+            "RE7.lua",
+            "RE8.lua",
+            "Statics.lua"
+        )) {
+            Add-ZipFile $zip (Join-Path $RepoRoot "scripts\utility\$script") "reframework/autorun/utility/$script"
+        }
+
+        Add-ZipDirectory $zip "reframework/autorun/vr"
+        Add-ZipFile $zip (Join-Path $RepoRoot "scripts\vr\VRControllerManager.lua") "reframework/autorun/vr/VRControllerManager.lua"
+        Add-ZipFile $zip $revisionFile "reframework_revision.txt"
+    } finally {
+        $zip.Dispose()
+    }
+
+    Write-Host "Packaged RE7 release zip: $zipPath"
+}
