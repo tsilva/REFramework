@@ -96,6 +96,10 @@ private:
 
     TextureContext m_left_eye_rt{};
     TextureContext m_right_eye_rt{};
+    ComPtr<ID3D11VertexShader> m_vignette_vertex_shader{};
+    ComPtr<ID3D11PixelShader> m_vignette_pixel_shader{};
+    ComPtr<ID3D11Buffer> m_vignette_constants{};
+    ComPtr<ID3D11BlendState> m_vignette_blend_state{};
     std::unique_ptr<DirectX::DX11::SpriteBatch> m_sprite_batch{};
 
     bool m_backbuffer_is_8bit{false};
@@ -119,5 +123,7 @@ private:
     } m_openxr;
 
     bool setup();
+    bool setup_comfort_vignette();
+    void draw_comfort_vignette(VR* vr, ID3D11Texture2D* texture);
 };
 } // namespace vrmod

@@ -1,6 +1,10 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <openvr.h>
+#include <d3dcompiler.h>
+#include <cstring>
+
+#pragma comment(lib, "d3dcompiler")
 
 #include "../VR.hpp"
 
@@ -227,8 +231,6 @@ vr::EVRCompositorError D3D11Component::on_frame(VR* vr) {
 
     // If m_frame_count is even, we're rendering the left eye.
     if (vr->m_render_frame_count % 2 == vr->m_left_eye_interval) {
-        auto copy_from_tex = m_backbuffer_is_8bit ? backbuffer : m_left_eye_rt.tex;
-
         // HDR compatible path. If backbuffer is 8bit, we just copy from that instead.
         // If not, then we use SpriteBatch to convert the texture to 8bit.
         if (!m_backbuffer_is_8bit && m_left_eye_rt.has_srv()) {
@@ -266,9 +268,12 @@ vr::EVRCompositorError D3D11Component::on_frame(VR* vr) {
             context->CopyResource(m_left_eye_tex.Get(), backbuffer.Get());
         }
 
+        auto copy_from_tex = (ID3D11Texture2D*)m_left_eye_rt.tex.Get();
+        draw_comfort_vignette(vr, copy_from_tex);
+
         if (runtime->is_openxr() && runtime->ready()) {
             LOG_VERBOSE("Copying left eye");
-            m_openxr.copy(0, (ID3D11Texture2D*)copy_from_tex.Get());
+            m_openxr.copy(0, copy_from_tex);
         }
 
         if (runtime->is_openvr()) {
@@ -285,8 +290,6 @@ vr::EVRCompositorError D3D11Component::on_frame(VR* vr) {
             }
         }
     } else {
-        auto copy_from_tex = m_backbuffer_is_8bit ? backbuffer : m_right_eye_rt.tex;
-
         // HDR compatible path. If backbuffer is 8bit, we just copy from that instead.
         // If not, then we use SpriteBatch to convert the texture to 8bit.
         if (!m_backbuffer_is_8bit && m_right_eye_rt.has_srv()) {
@@ -320,12 +323,17 @@ vr::EVRCompositorError D3D11Component::on_frame(VR* vr) {
             m_sprite_batch->Draw(m_backbuffer_copy_rt, DirectX::Colors::White);
 
             m_sprite_batch->End();
+        } else if (m_backbuffer_is_8bit) {
+            context->CopyResource(m_right_eye_tex.Get(), backbuffer.Get());
         }
+
+        auto copy_from_tex = (ID3D11Texture2D*)m_right_eye_rt.tex.Get();
+        draw_comfort_vignette(vr, copy_from_tex);
 
         if (runtime->ready()) {
             if (runtime->is_openxr()) {
                 LOG_VERBOSE("Copying right eye");
-                m_openxr.copy(1, (ID3D11Texture2D*)copy_from_tex.Get());
+                m_openxr.copy(1, copy_from_tex);
             }
 
             if (runtime->get_synchronize_stage() == VRRuntime::SynchronizeStage::VERY_LATE || !runtime->got_first_sync) {
@@ -351,11 +359,6 @@ vr::EVRCompositorError D3D11Component::on_frame(VR* vr) {
         }
 
         if (runtime->is_openvr()) {
-            // Copy the back buffer to the right eye texture.
-            if (m_backbuffer_is_8bit) {
-                context->CopyResource(m_right_eye_tex.Get(), backbuffer.Get());
-            }
-            
             vr::Texture_t right_eye{(void*)m_right_eye_tex.Get(), vr::TextureType_DirectX, vr::ColorSpace_Auto};
 
             auto e = vr::VRCompositor()->Submit(vr::Eye_Right, &right_eye, &vr->m_right_bounds);
@@ -426,6 +429,10 @@ void D3D11Component::on_reset(VR* vr) {
     m_right_eye_tex.Reset();
     m_left_eye_depthstencil.Reset();
     m_right_eye_depthstencil.Reset();
+    m_vignette_vertex_shader.Reset();
+    m_vignette_pixel_shader.Reset();
+    m_vignette_constants.Reset();
+    m_vignette_blend_state.Reset();
     m_sprite_batch.reset();
 
     if (vr->get_runtime()->is_openxr() && vr->get_runtime()->loaded) {
@@ -529,6 +536,190 @@ bool D3D11Component::setup() {
     spdlog::info("[VR] d3d11 textures have been setup");
 
     return true;
+}
+
+bool D3D11Component::setup_comfort_vignette() {
+    if (m_vignette_vertex_shader != nullptr && m_vignette_pixel_shader != nullptr && m_vignette_constants != nullptr && m_vignette_blend_state != nullptr) {
+        return true;
+    }
+
+    auto device = g_framework->get_d3d11_hook()->get_device();
+
+    static const char* vertex_shader = R"(
+        struct VSOut {
+            float4 pos : SV_Position;
+            float2 uv : TEXCOORD0;
+        };
+
+        VSOut main(uint id : SV_VertexID) {
+            float2 positions[3] = {
+                float2(-1.0, -1.0),
+                float2(-1.0,  3.0),
+                float2( 3.0, -1.0)
+            };
+
+            float2 uvs[3] = {
+                float2(0.0, 1.0),
+                float2(0.0, -1.0),
+                float2(2.0, 1.0)
+            };
+
+            VSOut output;
+            output.pos = float4(positions[id], 0.0, 1.0);
+            output.uv = uvs[id];
+            return output;
+        }
+    )";
+
+    static const char* pixel_shader = R"(
+        cbuffer VignetteConstants : register(b0) {
+            float amount;
+            float inner_width;
+            float outer_width;
+            float aspect;
+            float padding0;
+            float padding1;
+            float padding2;
+            float padding3;
+        };
+
+        float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
+            float2 centered = abs((uv * 2.0) - 1.0);
+            centered.x *= aspect;
+
+            float2 inner = float2(inner_width * aspect, inner_width);
+            float2 outer = float2(outer_width * aspect, outer_width);
+            float2 edge_xy = smoothstep(inner, outer, centered);
+            float edge = max(edge_xy.x, edge_xy.y);
+
+            return float4(0.0, 0.0, 0.0, saturate(edge * amount));
+        }
+    )";
+
+    ComPtr<ID3DBlob> vs_blob{};
+    ComPtr<ID3DBlob> ps_blob{};
+    ComPtr<ID3DBlob> errors{};
+
+    if (FAILED(D3DCompile(vertex_shader, std::strlen(vertex_shader), nullptr, nullptr, nullptr, "main", "vs_4_0", 0, 0, &vs_blob, &errors))) {
+        spdlog::error("[VR] Failed to compile comfort vignette vertex shader");
+        return false;
+    }
+
+    errors.Reset();
+
+    if (FAILED(D3DCompile(pixel_shader, std::strlen(pixel_shader), nullptr, nullptr, nullptr, "main", "ps_4_0", 0, 0, &ps_blob, &errors))) {
+        spdlog::error("[VR] Failed to compile comfort vignette pixel shader");
+        return false;
+    }
+
+    if (FAILED(device->CreateVertexShader(vs_blob->GetBufferPointer(), vs_blob->GetBufferSize(), nullptr, &m_vignette_vertex_shader))) {
+        spdlog::error("[VR] Failed to create comfort vignette vertex shader");
+        return false;
+    }
+
+    if (FAILED(device->CreatePixelShader(ps_blob->GetBufferPointer(), ps_blob->GetBufferSize(), nullptr, &m_vignette_pixel_shader))) {
+        spdlog::error("[VR] Failed to create comfort vignette pixel shader");
+        return false;
+    }
+
+    D3D11_BUFFER_DESC buffer_desc{};
+    buffer_desc.ByteWidth = sizeof(float) * 8;
+    buffer_desc.Usage = D3D11_USAGE_DYNAMIC;
+    buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    buffer_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    if (FAILED(device->CreateBuffer(&buffer_desc, nullptr, &m_vignette_constants))) {
+        spdlog::error("[VR] Failed to create comfort vignette constant buffer");
+        return false;
+    }
+
+    D3D11_BLEND_DESC blend_desc{};
+    blend_desc.RenderTarget[0].BlendEnable = TRUE;
+    blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    if (FAILED(device->CreateBlendState(&blend_desc, &m_vignette_blend_state))) {
+        spdlog::error("[VR] Failed to create comfort vignette blend state");
+        return false;
+    }
+
+    return true;
+}
+
+void D3D11Component::draw_comfort_vignette(VR* vr, ID3D11Texture2D* texture) {
+    if (texture == nullptr || !vr->m_comfort_vignette->value() || vr->m_comfort_vignette_range->value() <= 0.01f || vr->m_comfort_vignette_amount <= 0.01f) {
+        return;
+    }
+
+    if (!setup_comfort_vignette()) {
+        return;
+    }
+
+    auto device = g_framework->get_d3d11_hook()->get_device();
+
+    ComPtr<ID3D11DeviceContext> context{};
+    device->GetImmediateContext(&context);
+    DX11StateBackup backup{context.Get()};
+
+    D3D11_TEXTURE2D_DESC texture_desc{};
+    texture->GetDesc(&texture_desc);
+
+    ComPtr<ID3D11RenderTargetView> rtv{};
+
+    if (FAILED(device->CreateRenderTargetView(texture, nullptr, &rtv))) {
+        return;
+    }
+
+    const auto amount = std::clamp(vr->m_comfort_vignette_amount * vr->m_comfort_vignette_strength->value(), 0.0f, 1.0f);
+    const auto begin_angle = vr->get_comfort_vignette_begin_angle();
+    const auto end_angle = vr->get_comfort_vignette_end_angle();
+    const auto max_inner_width = std::clamp((begin_angle / 89.0f) * 0.5f, 0.01f, 0.45f);
+    const auto max_outer_width = std::clamp((end_angle / 89.0f) * 0.5f, max_inner_width + 0.01f, 0.5f);
+    const auto inner_width = std::max(max_inner_width * amount, 0.001f);
+    const auto outer_width = std::max(max_outer_width * amount, inner_width + 0.001f);
+
+    const float constants[8]{
+        amount,
+        inner_width,
+        outer_width,
+        (float)texture_desc.Width / (float)std::max(texture_desc.Height, 1u),
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+    };
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+
+    if (FAILED(context->Map(m_vignette_constants.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        return;
+    }
+
+    std::memcpy(mapped.pData, constants, sizeof(constants));
+    context->Unmap(m_vignette_constants.Get(), 0);
+
+    D3D11_VIEWPORT viewport{};
+    viewport.Width = (float)texture_desc.Width;
+    viewport.Height = (float)texture_desc.Height;
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    const float blend_factor[4]{0.0f, 0.0f, 0.0f, 0.0f};
+
+    context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+    context->OMSetBlendState(m_vignette_blend_state.Get(), blend_factor, 0xffffffff);
+    context->RSSetViewports(1, &viewport);
+    context->IASetInputLayout(nullptr);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    context->VSSetShader(m_vignette_vertex_shader.Get(), nullptr, 0);
+    context->PSSetShader(m_vignette_pixel_shader.Get(), nullptr, 0);
+    context->PSSetConstantBuffers(0, 1, m_vignette_constants.GetAddressOf());
+    context->Draw(3, 0);
 }
 
 void D3D11Component::OpenXR::initialize(XrSessionCreateInfo& session_info) {

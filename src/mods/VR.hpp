@@ -311,6 +311,10 @@ private:
     void update_hmd_state();
     void update_action_states();
     void update_snap_turn();
+    void update_comfort_vignette();
+    void update_openxr_menu_shortcut();
+    float get_comfort_vignette_begin_angle() const;
+    float get_comfort_vignette_end_angle() const;
     void update_camera(); // if not in firstperson mode
     void update_camera_origin(); // every frame
     void update_audio_camera();
@@ -388,6 +392,7 @@ private:
 
     bool m_was_firstperson_toggle_down{false};
     bool m_was_flashlight_toggle_down{false};
+    bool m_was_openxr_menu_combo_down{false};
     
     
     std::unordered_map<std::string, std::reference_wrapper<vr::VRActionHandle_t>> m_action_handles {
@@ -432,6 +437,10 @@ private:
     std::chrono::nanoseconds m_last_input_delay{};
     std::chrono::nanoseconds m_avg_input_delay{};
     bool m_was_snap_turn_active{false};
+    float m_comfort_vignette_amount{0.0f};
+    float m_last_comfort_vignette_target{0.0f};
+    std::chrono::steady_clock::time_point m_last_comfort_vignette_update{};
+    std::chrono::steady_clock::time_point m_snap_turn_vignette_until{};
 
     HANDLE m_present_finished_event{CreateEvent(nullptr, TRUE, FALSE, nullptr)};
 
@@ -509,6 +518,11 @@ private:
     const ModSlider::Ptr m_snap_turn_angle{ ModSlider::create(generate_name("SnapTurnAngle"), 15.0f, 180.0f, 45.0f) };
     const ModSlider::Ptr m_snap_turn_threshold{ ModSlider::create(generate_name("SnapTurnThreshold"), 0.1f, 1.0f, 0.5f) };
     const ModSlider::Ptr m_smooth_turn_speed{ ModSlider::create(generate_name("SmoothTurnSpeed"), 0.1f, 1.0f, 0.5f) };
+    const ModToggle::Ptr m_comfort_vignette{ ModToggle::create(generate_name("ComfortVignette"), true) };
+    const ModSlider::Ptr m_comfort_vignette_strength{ ModSlider::create(generate_name("ComfortVignetteStrength"), 0.05f, 1.0f, 1.0f) };
+    const ModSlider::Ptr m_comfort_vignette_range{ ModSlider::create(generate_name("ComfortVignetteRange"), 0.0f, 100.0f, 80.0f) };
+    const ModSlider::Ptr m_comfort_vignette_fade_in{ ModSlider::create(generate_name("ComfortVignetteFadeIn"), 0.05f, 2.0f, 0.08f) };
+    const ModSlider::Ptr m_comfort_vignette_fade_out{ ModSlider::create(generate_name("ComfortVignetteFadeOut"), 0.05f, 2.0f, 0.25f) };
     const ModSlider::Ptr m_ui_scale_option{ ModSlider::create(generate_name("2DUIScale"), 1.0f, 100.0f, 12.0f) };
     const ModSlider::Ptr m_ui_distance_option{ ModSlider::create(generate_name("2DUIDistance"), 0.01f, 100.0f, 1.0f) };
     const ModSlider::Ptr m_world_ui_scale_option{ ModSlider::create(generate_name("WorldSpaceUIScale"), 1.0f, 100.0f, 15.0f) };
@@ -567,6 +581,11 @@ private:
         *m_snap_turn_angle,
         *m_snap_turn_threshold,
         *m_smooth_turn_speed,
+        *m_comfort_vignette,
+        *m_comfort_vignette_strength,
+        *m_comfort_vignette_range,
+        *m_comfort_vignette_fade_in,
+        *m_comfort_vignette_fade_out,
         *m_force_fps_settings,
         *m_force_aa_settings,
         *m_force_motionblur_settings,
