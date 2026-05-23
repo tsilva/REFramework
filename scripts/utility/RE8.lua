@@ -57,6 +57,12 @@ local CallbackManager = {
 
 local callbacks = CallbackManager:new()
 
+local function set_re7_snap_turn_suppressed(suppressed)
+    if is_re7 and vrmod ~= nil and vrmod.set_snap_turn_suppressed ~= nil then
+        vrmod:set_snap_turn_suppressed(suppressed)
+    end
+end
+
 local function initialize_re8(re8)
     re8 = re8 or {}
 
@@ -91,6 +97,7 @@ local function initialize_re8(re8)
     re8.application = sdk.get_native_singleton("via.Application")
     re8.application_type = sdk.find_type_definition("via.Application")
     re8vr.delta_time = 0.0
+    set_re7_snap_turn_suppressed(false)
 
     return re8
 end
@@ -127,6 +134,7 @@ end
 function re8.update_in_cutscene_state()
     re8vr.is_in_cutscene = re8.num_active_tasks > 0 or not re8.has_postural_camera_control or re8vr.is_arm_jacked or re8vr.is_motion_play
     re8vr.can_use_hands = not re8vr.is_arm_jacked and not re8vr.is_motion_play
+    set_re7_snap_turn_suppressed(re8vr.is_in_cutscene)
 end
 
 re.on_pre_application_entry("UpdateBehavior", function()

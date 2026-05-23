@@ -43,6 +43,44 @@ namespace {
 constexpr float RE7_VR_MIN_NEARZ = 0.1f;
 constexpr float RE7_VR_DEFAULT_UI_DISTANCE = 1.5f;
 constexpr float RE7_VR_MIN_WORLD_UI_DISTANCE = 1.0f;
+
+bool is_re7_game_over_gui_name(std::string_view name) {
+    return name.find("GameOver") != std::string_view::npos
+        || name.find("Game_Over") != std::string_view::npos
+        || name.find("YouAreDead") != std::string_view::npos
+        || name.find("You_Are_Dead") != std::string_view::npos
+        || name.find("DeadMenu") != std::string_view::npos;
+}
+
+bool is_re7_game_over_gui_component(REComponent* gui_element, REGameObject* game_object) {
+    static const auto game_over_behavior_type = sdk::find_type_definition(game_namespace("gui.GameOverBehavior"));
+    static const auto game_over_fade_behavior_type = sdk::find_type_definition(game_namespace("gui.GameOverFadeBehavior"));
+    static const auto game_over_timeline_behavior_type = sdk::find_type_definition(game_namespace("gui.GameOverSceneTimelineBehavior"));
+
+    static const std::array<sdk::RETypeDefinition*, 3> game_over_types{
+        game_over_behavior_type,
+        game_over_fade_behavior_type,
+        game_over_timeline_behavior_type,
+    };
+
+    const auto gui_element_type = utility::re_managed_object::get_type_definition(gui_element);
+
+    for (const auto type : game_over_types) {
+        if (type == nullptr) {
+            continue;
+        }
+
+        if (gui_element_type != nullptr && gui_element_type->is_a(type)) {
+            return true;
+        }
+
+        if (game_object != nullptr && game_object->transform != nullptr && utility::re_component::find(game_object->transform, type->get_type()) != nullptr) {
+            return true;
+        }
+    }
+
+    return false;
+}
 #endif
 }
 
@@ -409,6 +447,12 @@ void VR::RenderLayerHook<sdk::renderer::layer::PostEffect>::draw(sdk::renderer::
         return;
     }
 
+#ifdef RE7
+    if (mod->should_suppress_re7_game_over_scene()) {
+        return;
+    }
+#endif
+
     auto scene_layer = layer->get_parent();
     uint32_t previous_distortion_type = 0;
 
@@ -472,6 +516,12 @@ void VR::RenderLayerHook<sdk::renderer::layer::Scene>::draw(sdk::renderer::layer
         original_func(layer, render_ctx);
         return;
     }
+
+#ifdef RE7
+    if (mod->should_suppress_re7_game_over_scene()) {
+        return;
+    }
+#endif
 
     original_func(layer, render_ctx);
 }
@@ -705,6 +755,9 @@ void VR::on_lua_state_created(sol::state& lua) {
         "get_rotation_offset", &VR::get_rotation_offset,
         "set_rotation_offset", &VR::set_rotation_offset,
         "recenter_view", &VR::recenter_view,
+        "is_snap_turn_suppressed", &VR::is_snap_turn_suppressed,
+        "set_snap_turn_suppressed", &VR::set_snap_turn_suppressed,
+        "suppress_snap_turn_for", &VR::suppress_snap_turn_for,
         "get_gui_rotation_offset", &VR::get_gui_rotation_offset,
         "set_gui_rotation_offset", &VR::set_gui_rotation_offset,
         "recenter_gui", &VR::recenter_gui,
@@ -1703,7 +1756,7 @@ void VR::update_action_states() {
 }
 
 bool VR::is_snap_turn_axis_active(const Vector2f& axis) const {
-    if (!m_snap_turn->value()) {
+    if (!m_snap_turn->value() || is_snap_turn_suppressed()) {
         return false;
     }
 
@@ -1713,7 +1766,7 @@ bool VR::is_snap_turn_axis_active(const Vector2f& axis) const {
 }
 
 void VR::update_snap_turn() {
-    if (!m_snap_turn->value() || !get_runtime()->ready() || m_controllers.empty()) {
+    if (!m_snap_turn->value() || is_snap_turn_suppressed() || !get_runtime()->ready() || m_controllers.empty()) {
         m_was_snap_turn_active = false;
         return;
     }
@@ -2160,6 +2213,14 @@ void VR::update_render_matrix() {
     m_render_camera_matrix[3] = sdk::get_joint_position(camera_joint);
 }
 
+bool VR::should_suppress_re7_game_over_scene() const {
+#ifdef RE7
+    return std::chrono::steady_clock::now() <= m_re7_game_over_comfort_until;
+#else
+    return false;
+#endif
+}
+
 void VR::restore_audio_camera() {
     if (!m_needs_audio_restore) {
         return;
@@ -2584,6 +2645,27 @@ void VR::set_rotation_offset(const glm::quat& offset) {
     m_rotation_offset = offset;
 }
 
+bool VR::is_snap_turn_suppressed() const {
+    return m_snap_turn_suppressed || std::chrono::steady_clock::now() < m_snap_turn_suppressed_until;
+}
+
+void VR::set_snap_turn_suppressed(bool suppressed) {
+    m_snap_turn_suppressed = suppressed;
+}
+
+void VR::suppress_snap_turn_for(float seconds) {
+    if (seconds <= 0.0f) {
+        return;
+    }
+
+    const auto duration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<float>{seconds});
+    const auto until = std::chrono::steady_clock::now() + duration;
+
+    if (until > m_snap_turn_suppressed_until) {
+        m_snap_turn_suppressed_until = until;
+    }
+}
+
 void VR::recenter_view() {
     const auto new_rotation_offset = glm::normalize(glm::inverse(utility::math::flatten(glm::quat{get_rotation(0)})));
 
@@ -2795,6 +2877,12 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
 
         const auto name = utility::re_string::get_string(game_object->name);
         const auto name_hash = utility::hash(name);
+
+#ifdef RE7
+        if (is_re7_game_over_gui_name(name) || is_re7_game_over_gui_component(gui_element, game_object)) {
+            m_re7_game_over_comfort_until = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        }
+#endif
 
         switch (name_hash) {
         // Don't mess with this, causes weird black boxes on the sides of the screen
@@ -3770,7 +3858,9 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
     const auto is_grip_down = is_action_active(m_action_grip, m_right_joystick);
     const auto is_trigger_down = is_action_active(m_action_trigger, m_right_joystick);
     const auto is_left_grip_down = is_action_active(m_action_grip, m_left_joystick);
-    const auto is_left_trigger_down = is_action_active(m_action_trigger, m_left_joystick);
+    const auto is_openxr = get_runtime()->is_openxr();
+    const auto is_openxr_left_weapon_dial_down = is_openxr && is_action_active(m_action_weapon_dial, m_left_joystick);
+    const auto is_left_trigger_down = is_action_active(m_action_trigger, m_left_joystick) || is_openxr_left_weapon_dial_down;
     const auto is_left_joystick_click_down = is_action_active(m_action_joystick_click, m_left_joystick);
     const auto is_right_joystick_click_down = is_action_active(m_action_joystick_click, m_right_joystick);
 
@@ -3785,7 +3875,10 @@ void VR::openvr_input_to_re2_re3(REManagedObject* input_system) {
     const auto is_dpad_down_down = is_action_active(m_action_dpad_down, m_left_joystick) || is_action_active(m_action_dpad_down, m_right_joystick);
     const auto is_dpad_left_down = is_action_active(m_action_dpad_left, m_left_joystick) || is_action_active(m_action_dpad_left, m_right_joystick);
 
-    const auto is_weapon_dial_down = is_action_active(m_action_weapon_dial, m_left_joystick) || is_action_active(m_action_weapon_dial, m_right_joystick);
+    const auto is_weapon_dial_down =
+        is_openxr
+            ? is_left_trigger_down
+            : is_action_active(m_action_weapon_dial, m_left_joystick) || is_action_active(m_action_weapon_dial, m_right_joystick);
     const auto is_re3_dodge_down = is_action_active(m_action_re3_dodge, m_left_joystick) || is_action_active(m_action_re3_dodge, m_right_joystick);
     const auto is_quickturn_down = is_action_active(m_action_re2_quickturn, m_left_joystick) || is_action_active(m_action_re2_quickturn, m_right_joystick);
     const auto is_reset_view_down = is_action_active(m_action_re2_reset_view, m_left_joystick) || is_action_active(m_action_re2_reset_view, m_right_joystick);

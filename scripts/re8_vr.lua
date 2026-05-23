@@ -239,6 +239,10 @@ local function update_pad_device(device)
         is_inventory_open = (os.clock() - last_inventory_open_time) < 0.25
     end
 
+    if is_re7 and is_inventory_open and vrmod.suppress_snap_turn_for ~= nil then
+        vrmod:suppress_snap_turn_for(0.25)
+    end
+
     local raw_left_stick_axis = vrmod:get_left_stick_axis()
     
     --local vr_left_stick_axis = last_camera_matrix:to_quat() * Vector4f.new(raw_left_stick_axis.x, raw_left_stick_axis.y, 0.0, 0.0)
@@ -322,6 +326,7 @@ local function update_pad_device(device)
 
     local right_joystick = vrmod:get_right_joystick()
     local left_joystick = vrmod:get_left_joystick()
+    local is_left_trigger_active = vrmod:is_action_active(action_trigger, left_joystick) or vrmod:is_action_active(action_weapon_dial, left_joystick)
 
     if vrmod:is_action_active(action_trigger, right_joystick) then
         device:call("set_AnalogR", 1.0)
@@ -369,7 +374,10 @@ local function update_pad_device(device)
         end
     end
 
-    if vrmod:is_action_active(action_trigger, left_joystick) then
+    if is_left_trigger_active then
+        device:call("set_AnalogL", 1.0)
+        cur_button = cur_button | via.hid.GamePadButton.LTrigBottom
+
         if is_inventory_open then
             cur_button = cur_button | via.hid.GamePadButton.LTrigTop
         end
@@ -1082,6 +1090,10 @@ local function fix_player_camera(player_camera)
                 re8vr.is_in_cutscene = false
             end
         end
+    end
+
+    if is_re7 and vrmod.set_snap_turn_suppressed ~= nil then
+        vrmod:set_snap_turn_suppressed(re8vr.is_in_cutscene)
     end
 
     local wants_recenter = false

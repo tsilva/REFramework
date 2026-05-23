@@ -107,6 +107,9 @@ public:
     glm::quat get_rotation_offset();
     void set_rotation_offset(const glm::quat& offset);
     void recenter_view();
+    bool is_snap_turn_suppressed() const;
+    void set_snap_turn_suppressed(bool suppressed);
+    void suppress_snap_turn_for(float seconds);
 
     glm::quat get_gui_rotation_offset();
     void set_gui_rotation_offset(const glm::quat& offset);
@@ -318,6 +321,7 @@ private:
     void update_camera_origin(); // every frame
     void update_audio_camera();
     void update_render_matrix();
+    bool should_suppress_re7_game_over_scene() const;
     void restore_audio_camera(); // after wwise listener update
     void restore_camera(); // After rendering
     void set_lens_distortion(bool value);
@@ -440,6 +444,8 @@ private:
     std::chrono::nanoseconds m_last_input_delay{};
     std::chrono::nanoseconds m_avg_input_delay{};
     bool m_was_snap_turn_active{false};
+    bool m_snap_turn_suppressed{false};
+    std::chrono::steady_clock::time_point m_snap_turn_suppressed_until{};
 
     HANDLE m_present_finished_event{CreateEvent(nullptr, TRUE, FALSE, nullptr)};
 
@@ -588,6 +594,7 @@ private:
     bool m_comfort_vignette_applied{false};
     std::chrono::steady_clock::time_point m_last_comfort_vignette_update{};
     std::chrono::steady_clock::time_point m_snap_turn_vignette_until{};
+    std::chrono::steady_clock::time_point m_re7_game_over_comfort_until{};
     RopewayPostEffectController* m_comfort_post_effect_controller{nullptr};
     RopewayPostEffectControllerBase* m_comfort_tone_mapping_controller{nullptr};
 
