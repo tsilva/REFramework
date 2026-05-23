@@ -181,6 +181,18 @@ link-libraries = [
     "openxr_loader",
     "delayimp",
 ]
+cmake-after = """
+add_custom_command(
+    TARGET ${CMKR_TARGET}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+        "$<TARGET_FILE_DIR:${CMKR_TARGET}>/openvr_api.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:openxr_loader>"
+        "$<TARGET_FILE_DIR:${CMKR_TARGET}>/openxr_loader.dll"
+)
+"""
 
 [template.game.properties]
 OUTPUT_NAME = "dinput8"

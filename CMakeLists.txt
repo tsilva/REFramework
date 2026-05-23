@@ -884,6 +884,17 @@ if(REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8) # build-framework
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 	)
 
+	add_custom_command(
+		TARGET RE2
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+			"$<TARGET_FILE_DIR:RE2>/openvr_api.dll"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE:openxr_loader>"
+			"$<TARGET_FILE_DIR:RE2>/openxr_loader.dll"
+	)
+
 	unset(CMKR_TARGET)
 	unset(CMKR_SOURCES)
 endif()
@@ -1342,6 +1353,17 @@ if(REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8) # build-framework
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 		ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+	)
+
+	add_custom_command(
+		TARGET RE3
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+			"$<TARGET_FILE_DIR:RE3>/openvr_api.dll"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE:openxr_loader>"
+			"$<TARGET_FILE_DIR:RE3>/openxr_loader.dll"
 	)
 
 	unset(CMKR_TARGET)
@@ -1804,6 +1826,17 @@ if(REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8) # build-framework
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 	)
 
+	add_custom_command(
+		TARGET RE7
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+			"$<TARGET_FILE_DIR:RE7>/openvr_api.dll"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE:openxr_loader>"
+			"$<TARGET_FILE_DIR:RE7>/openxr_loader.dll"
+	)
+
 	unset(CMKR_TARGET)
 	unset(CMKR_SOURCES)
 endif()
@@ -2262,6 +2295,17 @@ if(REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8) # build-framework
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 		ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+	)
+
+	add_custom_command(
+		TARGET RE8
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+			"$<TARGET_FILE_DIR:RE8>/openvr_api.dll"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE:openxr_loader>"
+			"$<TARGET_FILE_DIR:RE8>/openxr_loader.dll"
 	)
 
 	unset(CMKR_TARGET)
@@ -2724,6 +2768,17 @@ if(REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8) # build-framework
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 	)
 
+	add_custom_command(
+		TARGET DMC5
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+			"$<TARGET_FILE_DIR:DMC5>/openvr_api.dll"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE:openxr_loader>"
+			"$<TARGET_FILE_DIR:DMC5>/openxr_loader.dll"
+	)
+
 	unset(CMKR_TARGET)
 	unset(CMKR_SOURCES)
 endif()
@@ -3182,6 +3237,17 @@ if(REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8) # build-framework
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
 		ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO
 			"${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+	)
+
+	add_custom_command(
+		TARGET MHRISE
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${CMAKE_SOURCE_DIR}/dependencies/openvr/bin/win64/openvr_api.dll"
+			"$<TARGET_FILE_DIR:MHRISE>/openvr_api.dll"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"$<TARGET_FILE:openxr_loader>"
+			"$<TARGET_FILE_DIR:MHRISE>/openxr_loader.dll"
 	)
 
 	unset(CMKR_TARGET)

@@ -38,6 +38,14 @@ uint32_t actual_frame_count = 0;
 
 thread_local bool inside_gui_draw = false;
 
+namespace {
+#ifdef RE7
+constexpr float RE7_VR_MIN_NEARZ = 0.1f;
+constexpr float RE7_VR_DEFAULT_UI_DISTANCE = 1.5f;
+constexpr float RE7_VR_MIN_WORLD_UI_DISTANCE = 1.0f;
+#endif
+}
+
 std::shared_ptr<VR>& VR::get() {
     static std::shared_ptr<VR> inst{};
 
@@ -1928,6 +1936,9 @@ void VR::update_camera() {
     }
 
     m_nearz = get_near_clip_plane_method->call<float>(sdk::get_thread_context(), camera);
+#ifdef RE7
+    m_nearz = std::max(m_nearz, RE7_VR_MIN_NEARZ);
+#endif
     m_farz = get_far_clip_plane_method->call<float>(sdk::get_thread_context(), camera);
 
     // Disable certain effects like the 3D overlay during the sewer gators
@@ -2930,6 +2941,19 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
                             auto delta = target_position - m_render_camera_matrix[3];
                             delta.w = 0.0f;
 
+                            auto distance = glm::length(delta);
+
+                            if (distance <= 0.001f) {
+                                delta = m_render_camera_matrix[2];
+                                delta.w = 0.0f;
+                                distance = glm::length(delta);
+                            }
+
+                            if (distance <= 0.001f) {
+                                delta = Vector4f{0.0f, 0.0f, 1.0f, 0.0f};
+                                distance = 1.0f;
+                            }
+
                             auto dir = glm::normalize(delta);
                             dir.w = 0.0f;
                             
@@ -2938,6 +2962,14 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
                             const auto look_rot = glm::quat{look_mat};
 
                             auto new_pos = target_position;
+#ifdef RE7
+                            const auto min_world_ui_distance = std::max(RE7_VR_MIN_WORLD_UI_DISTANCE, std::min(2.0f, m_ui_distance_option->value() * 0.75f));
+
+                            if (distance < min_world_ui_distance) {
+                                new_pos = m_render_camera_matrix[3] + (dir * min_world_ui_distance);
+                                distance = min_world_ui_distance;
+                            }
+#endif
                             new_pos.w = 1.0f;
 
                             gui_matrix = look_mat;
@@ -2950,7 +2982,6 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
                             //sdk::set_transform_rotation(game_object->transform, look_rot);
                             
                             const auto scaled_ui_scale = *custom_ui_scale * 0.01f;
-                            const auto distance = glm::length(delta);
                             const auto scale = std::clamp<float>(distance * scaled_ui_scale, 0.1f, 100.0f);
 
                             regenny::via::Size gui_size{};
@@ -4298,8 +4329,8 @@ void VR::on_config_load(const utility::Config& cfg) {
         m_ui_scale_option->value() = 12.0f;
     }
 
-    if (m_ui_distance_option->value() <= 0.0f || m_ui_distance_option->value() > 10.0f) {
-        m_ui_distance_option->value() = 1.0f;
+    if (m_ui_distance_option->value() < 1.25f || m_ui_distance_option->value() > 10.0f) {
+        m_ui_distance_option->value() = RE7_VR_DEFAULT_UI_DISTANCE;
     }
 
     if (m_world_ui_scale_option->value() <= 0.0f || m_world_ui_scale_option->value() > 30.0f) {

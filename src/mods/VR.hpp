@@ -523,7 +523,7 @@ private:
     const ModSlider::Ptr m_comfort_vignette_begin_angle{ ModSlider::create(generate_name("ComfortVignetteBeginAngle"), 1.0f, 89.0f, 24.0f) };
     const ModSlider::Ptr m_comfort_vignette_end_angle{ ModSlider::create(generate_name("ComfortVignetteEndAngle"), 1.0f, 89.0f, 54.0f) };
     const ModSlider::Ptr m_ui_scale_option{ ModSlider::create(generate_name("2DUIScale"), 1.0f, 100.0f, 12.0f) };
-    const ModSlider::Ptr m_ui_distance_option{ ModSlider::create(generate_name("2DUIDistance"), 0.01f, 100.0f, 1.0f) };
+    const ModSlider::Ptr m_ui_distance_option{ ModSlider::create(generate_name("2DUIDistance"), 0.5f, 100.0f, 1.5f) };
     const ModSlider::Ptr m_world_ui_scale_option{ ModSlider::create(generate_name("WorldSpaceUIScale"), 1.0f, 100.0f, 15.0f) };
     const ModSlider::Ptr m_resolution_scale{ ModSlider::create(generate_name("OpenXRResolutionScale"), 0.1f, 5.0f, 1.0f) };
 
