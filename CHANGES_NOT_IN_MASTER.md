@@ -92,6 +92,7 @@ Files changed:
 What changed:
 
 - The GitHub Actions workflow was renamed from a generic dev release to `RE7 TDB49 Dev Release`.
+- Checkout was updated to `actions/checkout@v4` with full history and tags so upstream-prefixed package versioning can resolve the source-release tag in CI.
 - The artifact upload action was updated from deprecated `actions/upload-artifact@v2.3.1` to `actions/upload-artifact@v4`.
 - The workflow no longer builds a matrix of RE2, RE3, RE7, RE8, DMC5, and MHRISE. It builds only the `RE7` target.
 - The workflow now configures with `-DCMKR_SKIP_GENERATION=ON`, builds `RE7`, runs `dev/package-re7-tdb49.ps1`, and uploads `build/release/RE7_TDB49.zip`.
@@ -595,7 +596,7 @@ Why:
 
 | File | Diff role | What changed |
 | --- | --- | --- |
-| `.github/workflows/dev-release.yml` | Packaging workflow | Replaced multi-game artifact workflow with RE7-only build, package, and upload flow; updated artifact upload to `actions/upload-artifact@v4`. |
+| `.github/workflows/dev-release.yml` | Packaging workflow | Replaced multi-game artifact workflow with RE7-only build, package, and upload flow; updated checkout/upload actions and fetches full history/tags for upstream-prefixed package versioning. |
 | `.gitignore` | Local build hygiene | Added `build_v1_2*/` ignore pattern. |
 | `CMakeLists.txt` | Build output layout | Added post-build copy commands for OpenVR/OpenXR loader DLLs for every game target; current worktree uses `${CMKR_TARGET}` in those generated blocks. |
 | `MEMORY.md` | Documentation | Added working RE7 TDB49 branch memory, build recipe, deploy notes, known issue notes, and follow-up game-over backdrop suppression note. |
