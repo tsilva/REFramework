@@ -65,7 +65,9 @@ Compared with official REFramework `master`, this build is a practical Resident 
 
 At a high level, this release differs from official by adding:
 
+- RE7-antipuke setup documentation for installing and tuning the opinionated RE7 comfort build.
 - RE7 TDB49 release packaging and known-good config payloads.
+- Release package versioning prefixed with the upstream REFramework source-release version this fork is based on.
 - Quest/VR snap turning and safeguards so it does not conflict with inventory or cutscenes.
 - Movement, turn, snap-turn, and cutscene comfort vignette behavior.
 - D3D11 stereo vignette rendering for reliable VR comfort output.
@@ -536,6 +538,58 @@ Why:
 
 - The branch depends on a specific working recipe. Capturing that context makes the code changes maintainable and the release process repeatable.
 
+### 18. RE7-antipuke README
+
+Purpose: make the repository README document how users should install and run the opinionated RE7 comfort build.
+
+Files changed:
+
+- `README.md`
+- `CHANGES_NOT_IN_MASTER.md`
+
+What changed:
+
+- Replaced the upstream-generic README with a RE7-antipuke setup guide.
+- Explained that the build exists because RE7 can be unusually intense in VR due to fast and unstable camera transitions, cutscenes, and other comfort-hostile moments.
+- Documented the main comfort changes: movement/rotation/cutscene vignette support and 45 degree joystick snap turning.
+- Documented the recommended Quest 3 + Virtual Desktop + VDXR + OpenXR setup, including PC, network, Virtual Desktop, RE7, and REFramework settings.
+- Kept the documented RE7 and REFramework setting recommendations aligned with the actual `release/re7_config.ini` and `release/re2_fw_config.txt` values shipped in the package.
+- Documented the critical Steam beta rollback flow for selecting the `dx11_non-rt` DX11 / non-RT game build before installing the mod.
+- Documented the install flow for the packaged build, including extracting `dinput8.dll`, both runtime loader DLLs, bundled configs, and `reframework\autorun` into the RE7 game folder.
+- Added an optional recommendation for the Nexus Mods `4K HD Upscaled Textures` DX11 texture pack.
+- Removed the separate `SETUP.md` copy so the README is the canonical user-facing setup document.
+
+Why:
+
+- The release package is intentionally tuned for a specific RE7 VR comfort target and should explain that opinionated scope before users install it.
+- The bundled config files are part of the release experience, so users need a clear guide for what they are, where they go, and which runtime path they are meant to support.
+
+### 19. Upstream-Prefixed Build Versions
+
+Purpose: make fork release version numbers identify the upstream REFramework source release they modify.
+
+Files changed:
+
+- `dev/package-re7-tdb49.ps1`
+- `.github/workflows/dev-release.yml`
+- `README.md`
+- `CHANGES_NOT_IN_MASTER.md`
+
+What changed:
+
+- The package script now derives the upstream source-release prefix from the merge base between `HEAD` and the configured upstream branch, defaulting to `origin/master` with local `master` as a fallback.
+- The script resolves the upstream source tag with `git describe --tags --abbrev=0 --match "v*" <merge-base>`.
+- The script derives the fork build suffix from the current branch tag/description and strips the old descriptive tag prefix down to the trailing `v...` build number.
+- When `-PackageName` is not explicitly supplied, the release zip now uses the format `<upstream-source-version>-RE7-antipuke-<fork-build-version>.zip`, for example `v1.2-RE7-antipuke-v1.1.6.zip`.
+- `reframework_revision.txt` now includes `version`, `upstream_branch`, `upstream_merge_base`, `upstream_source_version`, and `fork_build_version`.
+- The GitHub artifact upload now accepts the dynamically named zip.
+- `README.md` now explains the versioned package-name format while noting that older packages may still use `RE7_TDB49.zip`.
+
+Why:
+
+- This fork modifies REFramework source-release lines, so release names should make the upstream source baseline visible before the fork's own build number.
+- Prefixing the fork build with the upstream source-release version makes support/debugging easier when multiple upstream REFramework lines are being tested.
+
 ## File-By-File Inventory
 
 | File | Diff role | What changed |
@@ -544,8 +598,9 @@ Why:
 | `.gitignore` | Local build hygiene | Added `build_v1_2*/` ignore pattern. |
 | `CMakeLists.txt` | Build output layout | Added post-build copy commands for OpenVR/OpenXR loader DLLs for every game target; current worktree uses `${CMKR_TARGET}` in those generated blocks. |
 | `MEMORY.md` | Documentation | Added working RE7 TDB49 branch memory, build recipe, deploy notes, known issue notes, and follow-up game-over backdrop suppression note. |
+| `README.md` | User setup documentation | Replaced upstream-generic README content with install, runtime, hardware, Virtual Desktop, RE7, and REFramework setting guidance for the opinionated RE7-antipuke comfort build. |
 | `cmake.toml` | Build template | Added cmkr template post-build copy hook for runtime loader DLLs. |
-| `dev/package-re7-tdb49.ps1` | Packaging script | Added script that stages DLLs, configs, scripts, revision metadata, and creates `RE7_TDB49.zip`. |
+| `dev/package-re7-tdb49.ps1` | Packaging script | Added script that stages DLLs, configs, scripts, revision metadata, and creates an upstream-prefixed RE7-antipuke release zip. |
 | `include/reframework/API.hpp` | API cleanup | Made `sdk()` return `const REFrameworkSDKData*` explicitly and normalized final newline. |
 | `release/re2_fw_config.txt` | Release config | Added REFramework config defaults for VR comfort, cutscene comfort vignette, snap turning, UI scale/distance, and rendering flags. |
 | `release/re7_config.ini` | Release config | Added tested RE7 game config for the packaged build. |
