@@ -25,7 +25,7 @@ jobs:
         run: .\dev\package-re7-tdb49.ps1 -BuildDir ${{github.workspace}}\build -Configuration ${{env.BUILD_TYPE}} -OutputDir ${{github.workspace}}\build\release
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2.3.1
+        uses: actions/upload-artifact@v4
         with:
           name: RE7-antipuke
           path: ${{github.workspace}}/build/release/*.zip
