@@ -65,7 +65,7 @@ Compared with official REFramework `master`, this build is a practical Resident 
 
 At a high level, this release differs from official by adding:
 
-- RE7-antipuke setup documentation for installing and tuning the opinionated RE7 comfort build.
+- REFramework-antipuke setup documentation for installing and tuning the opinionated RE7 comfort build.
 - RE7 TDB49 release packaging and known-good config payloads.
 - Release package versioning prefixed with the upstream REFramework source-release version this fork is based on.
 - Quest/VR snap turning and safeguards so it does not conflict with inventory or cutscenes.
@@ -540,7 +540,7 @@ Why:
 
 - The branch depends on a specific working recipe. Capturing that context makes the code changes maintainable and the release process repeatable.
 
-### 18. RE7-antipuke README
+### 18. REFramework-antipuke README
 
 Purpose: make the repository README document how users should install and run the opinionated RE7 comfort build.
 
@@ -551,11 +551,13 @@ Files changed:
 
 What changed:
 
-- Replaced the upstream-generic README with a RE7-antipuke setup guide.
+- Replaced the upstream-generic README with a REFramework-antipuke setup guide.
+- Updated README branding to `REFramework-antipuke` and added the short repository description: "Opinionated RE7 VR comfort fork of Praydog's REFramework. Experimental, Quest 3 / Virtual Desktop / VDXR focused."
 - Explained that the build exists because RE7 can be unusually intense in VR due to fast and unstable camera transitions, cutscenes, and other comfort-hostile moments.
 - Made the original [praydog/REFramework](https://github.com/praydog/REFramework) repository prominent at the beginning of the README.
 - Added a README section explaining why these experimental, RE7-only, personal-comfort changes are distributed through a fork instead of as an upstream pull request.
 - Reworked the README from a user install perspective with a quick start, clearer install phases, explicit RE7 game-folder guidance, and troubleshooting.
+- Made the README more concise by deduplicating repeated project/runtime descriptions and compressing long settings lists into shipped-default summaries.
 - Clarified that GitHub Actions artifact downloads may contain the actual versioned RE7-antipuke zip inside a wrapper artifact zip.
 - Documented that the recommended OpenXR + Virtual Desktop + VDXR path may require removing or renaming `openvr_api.dll`, because REFramework tries OpenVR first when that DLL is present.
 - Explained that `re2_fw_config.txt` should not be renamed even though the build targets RE7.
@@ -606,7 +608,7 @@ Why:
 | `.gitignore` | Local build hygiene | Added `build_v1_2*/` ignore pattern. |
 | `CMakeLists.txt` | Build output layout | Added post-build copy commands for OpenVR/OpenXR loader DLLs for every game target; current worktree uses `${CMKR_TARGET}` in those generated blocks. |
 | `MEMORY.md` | Documentation | Added working RE7 TDB49 branch memory, build recipe, deploy notes, known issue notes, and follow-up game-over backdrop suppression note. |
-| `README.md` | User setup documentation | Replaced upstream-generic README content with install, runtime, hardware, Virtual Desktop, RE7, and REFramework setting guidance for the opinionated RE7-antipuke comfort build. |
+| `README.md` | User setup documentation | Replaced upstream-generic README content with install, runtime, hardware, Virtual Desktop, RE7, and REFramework setting guidance for the opinionated REFramework-antipuke comfort build. |
 | `cmake.toml` | Build template | Added cmkr template post-build copy hook for runtime loader DLLs. |
 | `dev/package-re7-tdb49.ps1` | Packaging script | Added script that stages DLLs, configs, scripts, revision metadata, and creates an upstream-prefixed RE7-antipuke release zip. |
 | `include/reframework/API.hpp` | API cleanup | Made `sdk()` return `const REFrameworkSDKData*` explicitly and normalized final newline. |
