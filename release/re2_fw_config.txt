@@ -26,6 +26,7 @@ VR_2DUIScale=12.000000
 VR_AllowEngineOverlays=true
 VR_AlternateFrameRendering=false
 VR_ComfortVignette=true
+VR_ComfortVignetteCutscenes=true
 VR_ComfortVignetteBeginAngle=24.000000
 VR_ComfortVignetteEndAngle=54.000000
 VR_ComfortVignetteFadeIn=0.080000

@@ -109,6 +109,7 @@ public:
     void recenter_view();
     bool is_snap_turn_suppressed() const;
     void set_snap_turn_suppressed(bool suppressed);
+    void set_cutscene_vignette_active(bool active);
     void suppress_snap_turn_for(float seconds);
 
     glm::quat get_gui_rotation_offset();
@@ -522,6 +523,7 @@ private:
     const ModSlider::Ptr m_snap_turn_angle{ ModSlider::create(generate_name("SnapTurnAngle"), 15.0f, 180.0f, 45.0f) };
     const ModSlider::Ptr m_snap_turn_threshold{ ModSlider::create(generate_name("SnapTurnThreshold"), 0.1f, 1.0f, 0.5f) };
     const ModToggle::Ptr m_comfort_vignette{ ModToggle::create(generate_name("ComfortVignette"), true) };
+    const ModToggle::Ptr m_comfort_vignette_cutscenes{ ModToggle::create(generate_name("ComfortVignetteCutscenes"), true) };
     const ModSlider::Ptr m_comfort_vignette_strength{ ModSlider::create(generate_name("ComfortVignetteStrength"), 0.05f, 1.0f, 1.0f) };
     const ModSlider::Ptr m_comfort_vignette_range{ ModSlider::create(generate_name("ComfortVignetteRange"), 0.0f, 100.0f, 80.0f) };
     const ModSlider::Ptr m_comfort_vignette_fade_in{ ModSlider::create(generate_name("ComfortVignetteFadeIn"), 0.05f, 2.0f, 0.08f) };
@@ -577,6 +579,7 @@ private:
         *m_snap_turn_angle,
         *m_snap_turn_threshold,
         *m_comfort_vignette,
+        *m_comfort_vignette_cutscenes,
         *m_comfort_vignette_strength,
         *m_comfort_vignette_range,
         *m_comfort_vignette_fade_in,
@@ -592,6 +595,7 @@ private:
     float m_comfort_vignette_amount{0.0f};
     float m_last_comfort_vignette_target{0.0f};
     bool m_comfort_vignette_applied{false};
+    bool m_cutscene_vignette_active{false};
     std::chrono::steady_clock::time_point m_last_comfort_vignette_update{};
     std::chrono::steady_clock::time_point m_snap_turn_vignette_until{};
     std::chrono::steady_clock::time_point m_re7_game_over_comfort_until{};

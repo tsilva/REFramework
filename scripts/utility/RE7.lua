@@ -49,6 +49,12 @@ local CallbackManager = {
 
 local callbacks = CallbackManager:new()
 
+local function set_vr_cutscene_vignette(active)
+    if vrmod ~= nil and vrmod.set_cutscene_vignette_active ~= nil then
+        vrmod:set_cutscene_vignette_active(active)
+    end
+end
+
 local function initialize_re7(re7)
     re7 = re7 or {}
 
@@ -73,6 +79,7 @@ local function initialize_re7(re7)
     re7.application = sdk.get_native_singleton("via.Application")
     re7.application_type = sdk.find_type_definition("via.Application")
     re7.delta_time = 0.0
+    set_vr_cutscene_vignette(false)
 
     return re7
 end
@@ -164,6 +171,7 @@ re.on_pre_application_entry("UpdateBehavior", function()
         end
     else
         re7.is_in_cutscene = false
+        set_vr_cutscene_vignette(re7.is_in_cutscene)
     end
 
     if re7.inventory == nil then
@@ -205,6 +213,7 @@ local function on_pre_event_request_task(args)
     end
 
     re7.is_in_cutscene = true
+    set_vr_cutscene_vignette(re7.is_in_cutscene)
     re7.active_tasks[task] = true
 
     callbacks["event_task_create"]:dispatch(args)
@@ -236,6 +245,7 @@ local function on_pre_task_terminate(args)
     end
 
     re7.is_in_cutscene = re7.num_active_tasks > 0 or not re7.has_postural_camera_control or re7.is_arm_jacked
+    set_vr_cutscene_vignette(re7.is_in_cutscene)
 
     callbacks["event_task_terminate"]:dispatch(args)
 end
@@ -271,6 +281,7 @@ local function on_post_update_postural_camera_motion(retval)
     re7.is_arm_jacked = controller:get_field("IsRArmJacked")
     re7.has_postural_camera_control = controller:get_field("IsPosturalCameraControl")
     re7.is_in_cutscene = re7.num_active_tasks > 0 or not re7.has_postural_camera_control or re7.is_arm_jacked
+    set_vr_cutscene_vignette(re7.is_in_cutscene)
 
     return retval
 end

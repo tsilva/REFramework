@@ -81,6 +81,49 @@ bool is_re7_game_over_gui_component(REComponent* gui_element, REGameObject* game
 
     return false;
 }
+
+bool is_re7_game_over_backdrop_name(std::string_view name) {
+    return name.find("Back") != std::string_view::npos
+        || name.find("BG") != std::string_view::npos
+        || name.find("Bg") != std::string_view::npos
+        || name.find("Background") != std::string_view::npos
+        || name.find("Capture") != std::string_view::npos
+        || name.find("ScreenShot") != std::string_view::npos
+        || name.find("Screenshot") != std::string_view::npos
+        || name.find("ImagePlane") != std::string_view::npos
+        || name.find("Blur") != std::string_view::npos
+        || name.find("Filter") != std::string_view::npos
+        || name.find("SceneTimeline") != std::string_view::npos;
+}
+
+bool is_re7_game_over_capture_gui_component(REComponent* gui_element, REGameObject* game_object) {
+    static const auto game_over_timeline_behavior_type = sdk::find_type_definition(game_namespace("gui.GameOverSceneTimelineBehavior"));
+    static const auto blur_filter_type = sdk::find_type_definition("via.gui.BlurFilter");
+
+    const auto gui_element_type = utility::re_managed_object::get_type_definition(gui_element);
+
+    if (game_over_timeline_behavior_type != nullptr && gui_element_type != nullptr && gui_element_type->is_a(game_over_timeline_behavior_type)) {
+        return true;
+    }
+
+    if (blur_filter_type != nullptr && gui_element_type != nullptr && gui_element_type->is_a(blur_filter_type)) {
+        return true;
+    }
+
+    if (game_object == nullptr || game_object->transform == nullptr) {
+        return false;
+    }
+
+    if (game_over_timeline_behavior_type != nullptr && utility::re_component::find(game_object->transform, game_over_timeline_behavior_type->get_type()) != nullptr) {
+        return true;
+    }
+
+    if (blur_filter_type != nullptr && utility::re_component::find(game_object->transform, blur_filter_type->get_type()) != nullptr) {
+        return true;
+    }
+
+    return false;
+}
 #endif
 }
 
@@ -757,6 +800,7 @@ void VR::on_lua_state_created(sol::state& lua) {
         "recenter_view", &VR::recenter_view,
         "is_snap_turn_suppressed", &VR::is_snap_turn_suppressed,
         "set_snap_turn_suppressed", &VR::set_snap_turn_suppressed,
+        "set_cutscene_vignette_active", &VR::set_cutscene_vignette_active,
         "suppress_snap_turn_for", &VR::suppress_snap_turn_for,
         "get_gui_rotation_offset", &VR::get_gui_rotation_offset,
         "set_gui_rotation_offset", &VR::set_gui_rotation_offset,
@@ -1838,7 +1882,8 @@ void VR::update_comfort_vignette() {
     const auto turn_axis = std::abs(right_axis.x);
     const auto turn_target = turn_axis > deadzone && turn_axis > std::abs(right_axis.y) ? (turn_axis - deadzone) / (1.0f - deadzone) : 0.0f;
     const auto snap_turn_target = now < m_snap_turn_vignette_until ? 1.0f : 0.0f;
-    const auto target = std::max({ movement_target, turn_target, snap_turn_target });
+    const auto cutscene_target = m_comfort_vignette_cutscenes->value() && m_cutscene_vignette_active ? 1.0f : 0.0f;
+    const auto target = std::max({ movement_target, turn_target, snap_turn_target, cutscene_target });
     const auto fade_in = std::max(m_comfort_vignette_fade_in->value(), 0.01f);
     const auto fade_out = std::max(m_comfort_vignette_fade_out->value(), 0.01f);
     const auto sudden_movement = target >= 0.85f || (target - m_last_comfort_vignette_target) >= 0.35f;
@@ -2653,6 +2698,10 @@ void VR::set_snap_turn_suppressed(bool suppressed) {
     m_snap_turn_suppressed = suppressed;
 }
 
+void VR::set_cutscene_vignette_active(bool active) {
+    m_cutscene_vignette_active = active;
+}
+
 void VR::suppress_snap_turn_for(float seconds) {
     if (seconds <= 0.0f) {
         return;
@@ -2881,6 +2930,11 @@ bool VR::on_pre_gui_draw_element(REComponent* gui_element, void* primitive_conte
 #ifdef RE7
         if (is_re7_game_over_gui_name(name) || is_re7_game_over_gui_component(gui_element, game_object)) {
             m_re7_game_over_comfort_until = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        }
+
+        if (should_suppress_re7_game_over_scene() && (is_re7_game_over_backdrop_name(name) || is_re7_game_over_capture_gui_component(gui_element, game_object))) {
+            spdlog::debug("[VR] Suppressing RE7 game-over capture/backdrop GUI element: {}", name);
+            return false;
         }
 #endif
 
@@ -4310,6 +4364,7 @@ void VR::on_draw_ui() {
     m_comfort_vignette->draw("Movement/Turn Vignette");
 
     if (m_comfort_vignette->value()) {
+        m_comfort_vignette_cutscenes->draw("Auto Vignette in Cutscenes");
         m_comfort_vignette_range->draw("Vignette Range");
         m_comfort_vignette_strength->draw("Vignette Strength");
         m_comfort_vignette_fade_in->draw("Vignette Fade In");

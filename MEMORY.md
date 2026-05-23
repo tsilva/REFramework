@@ -362,6 +362,18 @@ Comfort patch direction:
 - Default/package `VR_2DUIDistance` to `1.5`.
 - Clamp RE7 world-attached GUI to at least about one meter from the HMD while preserving direction.
 - If the "You are dead" menu is visible, suppress the RE7 scene and post-effect draw layers behind it for a rolling short comfort window so the menu remains visible without the crossed-eye death-frame backdrop.
+- Follow-up observation: the remaining bad image appears when the game-over UI swaps the live scene to a captured/frozen last-frame image. Suppress likely RE7 game-over capture/backdrop GUI elements too, especially names containing backdrop/capture/screenshot/image-plane/blur clues and `GameOverSceneTimelineBehavior` / `BlurFilter` components.
+
+Cutscene comfort vignette confirmed working in-game:
+
+- Add saved C++ setting `VR_ComfortVignetteCutscenes=true`, exposed in the VR menu as `Auto Vignette in Cutscenes`.
+- Keep `VR_ComfortVignette` as the master kill switch; the cutscene toggle only contributes a target when the main vignette is enabled.
+- Expose `vrmod:set_cutscene_vignette_active(bool)` from `VR::set_cutscene_vignette_active`.
+- Let Lua report the already-known cutscene state instead of re-detecting it in C++:
+  - `scripts/utility/RE8.lua`: `set_vr_cutscene_state(re8vr.is_in_cutscene)`.
+  - `scripts/utility/RE7.lua`: `set_vr_cutscene_vignette(re7.is_in_cutscene)`.
+- In `VR::update_comfort_vignette`, include `cutscene_target` in the existing `std::max({ movement_target, turn_target, snap_turn_target, cutscene_target })`.
+- Targeted RE7 Release build succeeded after this wiring, and user confirmed the behavior worked in-game.
 
 ## GitHub Release
 
