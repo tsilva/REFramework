@@ -1,10 +1,21 @@
 # RE7-antipuke Setup Guide
 
+This is a fork of [praydog/REFramework](https://github.com/praydog/REFramework). RE7-antipuke would not exist without Praydog's original REFramework VR work.
+
 RE7-antipuke is an opinionated Resident Evil 7 VR build based on Praydog's excellent REFramework VR work.
 
 The goal is simple: make RE7 more playable in VR for people who find the stock VR mod experience too intense. RE7 is an aggressive VR game because of fast camera cuts, unstable scripted camera transitions, forced motion, and other comfort-hostile moments. This build changes the experience toward comfort, even when that means making choices that may not be ideal for every player or every RE Engine game.
 
 This build is currently meant for RE7 first. It includes OpenVR and OpenXR support, but it is tuned for OpenXR through Virtual Desktop with VDXR selected, using a Quest 3. Compatibility with other Resident Evil games may be broken or untested. The plan is to go through the other games later.
+
+## Why This Is A Fork
+
+These changes are distributed through a fork instead of as a pull request to the original repository for a few reasons:
+
+- The changes are mostly vibe coded and intentionally experimental.
+- Testing is currently limited to my own full RE7 playthrough, which is still in progress. I make fixes as I find issues.
+- I am only testing RE7 right now, so the chances this broke things for other supported RE Engine games are fairly high.
+- Some changes are personal comfort or preference choices that I want for my setup, but that may not be things other people want or things that would make sense for the main REFramework repo.
 
 ## What This Build Changes
 

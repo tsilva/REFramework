@@ -553,6 +553,8 @@ What changed:
 
 - Replaced the upstream-generic README with a RE7-antipuke setup guide.
 - Explained that the build exists because RE7 can be unusually intense in VR due to fast and unstable camera transitions, cutscenes, and other comfort-hostile moments.
+- Made the original [praydog/REFramework](https://github.com/praydog/REFramework) repository prominent at the beginning of the README.
+- Added a README section explaining why these experimental, RE7-only, personal-comfort changes are distributed through a fork instead of as an upstream pull request.
 - Documented the main comfort changes: movement/rotation/cutscene vignette support and 45 degree joystick snap turning.
 - Documented the recommended Quest 3 + Virtual Desktop + VDXR + OpenXR setup, including PC, network, Virtual Desktop, RE7, and REFramework settings.
 - Kept the documented RE7 and REFramework setting recommendations aligned with the actual `release/re7_config.ini` and `release/re2_fw_config.txt` values shipped in the package.
