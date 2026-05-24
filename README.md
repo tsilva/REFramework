@@ -75,6 +75,16 @@ Do not rename `re2_fw_config.txt`. The name is inherited from REFramework's conf
 - RE7 game config tuned for the setup below.
 - OpenXR and OpenVR files in the package, with OpenXR + VDXR recommended.
 
+## VR Comfort And Nausea
+
+These changes are meant to make RE7 more comfortable, not to make it impossible to feel sick. Go carefully, especially if you are new to VR or sensitive to motion sickness.
+
+Stop as soon as you feel nausea, dizziness, sweating, eye strain, warmth, or that "something is off" feeling. Take the headset off, rest, and try again another day. Short, comfortable sessions are better than forcing a long one.
+
+Pushing through nausea can make the session worse and may make the next attempt harder because your brain can start associating the headset, game, or motion pattern with feeling sick. The goal is to build comfort gradually.
+
+VR nausea is commonly explained by sensory conflict or neural mismatch: your eyes may see motion, acceleration, rotation, or camera movement while your inner ear and body do not feel matching physical movement. That mismatch can disrupt the brain's predictions about what your body is doing. One evolutionary hypothesis is that the brain may interpret severe sensory mismatch like a toxin or poisoning signal and respond with nausea. Whether or not that explanation is complete, the practical takeaway is the same: teach your brain that the experience is safe by stopping early, recovering fully, and increasing exposure slowly.
+
 ## Recommended Setup
 
 This is the setup I use:

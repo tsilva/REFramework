@@ -568,6 +568,7 @@ What changed:
 - Documented that the recommended OpenXR + Virtual Desktop + VDXR path may require removing or renaming `openvr_api.dll`, because REFramework tries OpenVR first when that DLL is present.
 - Explained that `re2_fw_config.txt` should not be renamed even though the build targets RE7.
 - Documented the main comfort changes: movement/rotation/cutscene vignette support and 45 degree joystick snap turning.
+- Added VR nausea guidance telling users to stop at early symptoms, build comfort gradually, and avoid pushing through sickness.
 - Documented the recommended Quest 3 + Virtual Desktop + VDXR + OpenXR setup, including PC, network, Virtual Desktop, RE7, and REFramework settings.
 - Kept the documented RE7 and REFramework setting recommendations aligned with the actual `release/re7_config.ini` and `release/re2_fw_config.txt` values shipped in the package.
 - Documented the critical Steam beta rollback flow for selecting the `dx11_non-rt` DX11 / non-RT game build before installing the mod.
