@@ -1,6 +1,6 @@
 # RE7 TDB49 Working Build Memory
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## What This Fork Is
 
@@ -10,12 +10,16 @@ The goal is not upstream generality right now. The goal is a working, easy-to-di
 
 ## Branch Truth
 
-- `tsilva/dev` is intentionally based on the upstream v1.2 / TDB49-era REFramework line.
-- Do not move `tsilva/dev` back to the newer universal/v2 REFramework line for this work.
-- `master` should stay aligned with upstream `origin/master`.
+- `origin/dev` is intentionally based on the upstream v1.2 / TDB49-era REFramework line.
+- `origin` is the `tsilva/REFramework-chill` fork.
+- `upstream` is the official `praydog/REFramework` repository.
+- Do not pull, merge, or rebase current `upstream/master` into `origin/dev` for normal RE7 releases.
+- Fetch `upstream/master` and tags only for official-reference comparison and source-version metadata unless the user explicitly asks to port this work to a newer upstream line.
+- Do not move `origin/dev` back to the newer universal/v2 REFramework line for this work.
+- Any local `master` branch is an official-reference branch only, not the RE7 release baseline.
 - The working TDB49 release commit is `49604e9f` (`Package working RE7 TDB49 build`).
 - The working release tag is `re7-tdb49-openxr-v1.1.6`.
-- The working release URL is `https://github.com/tsilva/REFramework/releases/tag/re7-tdb49-openxr-v1.1.6`.
+- The historical working release URL was `https://github.com/tsilva/REFramework/releases/tag/re7-tdb49-openxr-v1.1.6`; new releases should be published from `https://github.com/tsilva/REFramework-chill`.
 
 ## Critical Discovery
 
@@ -380,7 +384,13 @@ Cutscene comfort vignette confirmed working in-game:
 Final functional release created:
 
 ```text
+Historical release URL:
+
 https://github.com/tsilva/REFramework/releases/tag/re7-tdb49-openxr-v1.1.6
+
+New fork URL:
+
+https://github.com/tsilva/REFramework-chill
 ```
 
 Release asset:

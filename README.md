@@ -1,59 +1,26 @@
-# REFramework-antipuke
+# REFramework-chill
 
 Opinionated RE7 VR comfort fork of Praydog's REFramework. Experimental, Quest 3 / Virtual Desktop / VDXR focused.
 
-This is a fork of [praydog/REFramework](https://github.com/praydog/REFramework). REFramework-antipuke would not exist without Praydog's original REFramework VR work.
+This is a fork of [praydog/REFramework](https://github.com/praydog/REFramework). REFramework-chill would not exist without Praydog's original REFramework VR work.
 
-REFramework-antipuke is for playing Resident Evil 7 in VR with more comfort. It adds comfort-focused defaults and behavior for a game that can be rough in VR because of fast camera cuts, unstable scripted camera transitions, forced motion, and intense cutscenes.
+REFramework-chill is for playing Resident Evil 7 in VR with more comfort. It adds comfort-focused defaults and behavior for a game that can be rough in VR because of fast camera cuts, unstable scripted camera transitions, forced motion, and intense cutscenes.
 
-This build is currently tested only on RE7. It may break other RE Engine games.
+These changes are distributed as a fork instead of a pull request to the original repo because they are experimental, mostly vibe coded, and currently tested only through my own in-progress RE7 playthrough. I fix issues as I find them.
 
-## Quick Start
+This build also includes personal comfort choices that may not be desirable for everyone or appropriate for upstream REFramework. It is currently tested only on RE7 and may break other RE Engine games.
 
-1. Install RE7 on Steam.
-2. Switch RE7 to the Steam `dx11_non-rt` beta branch. This is required.
-3. Download the latest REFramework-antipuke build. Current artifacts may still be named `RE7-antipuke`; if GitHub gives you an artifact wrapper zip, unzip it first and use the versioned mod zip inside.
-4. Extract the versioned mod zip into the RE7 install folder, next to `re7.exe`.
-5. For the recommended OpenXR + Virtual Desktop + VDXR path, remove or rename `openvr_api.dll` after extraction. Keep `openxr_loader.dll`.
-6. Start Virtual Desktop, select VDXR as the OpenXR runtime, connect the Quest 3, and launch RE7.
+## Source Baseline
 
-Read the install notes below before replacing existing REFramework files.
+This fork targets the RE7 DX11 / non-RT / TDB49 path because that is the version I have tested and the one this comfort build is packaged for. Current upstream has moved toward a newer universal build shape, but this fork intentionally preserves the known-working TDB49-style RE7 package.
 
-## What This Changes
-
-- Movement, rotation, snap-turn, and cutscene comfort vignette.
-- Joystick snap turning, 45 degrees by default.
-- RE7-focused REFramework comfort config.
-- RE7 game config tuned for the setup below.
-- OpenXR and OpenVR files in the package, with OpenXR + VDXR recommended.
-
-## Recommended Setup
-
-This is the setup I use:
-
-- Quest 3
-- Virtual Desktop with VDXR
-- PC connected to router over Ethernet
-- Quest 3 connected over Wi-Fi 6/6E
-- Player near the router or wherever signal is strongest
-- RTX 4090, 64 GB DDR5
-
-Virtual Desktop settings:
-
-- Quality: Godlike
-- Codec: AV1 10-bit, or HEVC 10-bit fallback
-- Bitrate: 150-200+ Mbps
-- Sharpening: 0%
-- Refresh rate: 90 Hz
-- SSW: Off if stable
-
-With this setup I get stable 30-40 ms latency.
+Current upstream `master` is still the official project reference, but it is not the branch to merge into this build for normal releases.
 
 ## Install
 
 ### 1. Use The Required RE7 Version
 
-REFramework-antipuke targets the older DX11 / non-ray-tracing build of RE7. The newer ray-tracing / enhanced update is not the target.
+REFramework-chill targets the older DX11 / non-ray-tracing build of RE7. The newer ray-tracing / enhanced update is not the target.
 
 In Steam:
 
@@ -91,7 +58,7 @@ Reference: Capcom's Steam announcement for the DX11 rollback lists the same bran
 7. For OpenXR + Virtual Desktop + VDXR, remove or rename `openvr_api.dll`. REFramework tries OpenVR first when that DLL is present.
 8. Keep `openxr_loader.dll`.
 
-Do not rename `re2_fw_config.txt`. The name is inherited from REFramework's config layout, but this package uses it for the shipped REFramework-antipuke settings.
+Do not rename `re2_fw_config.txt`. The name is inherited from REFramework's config layout, but this package uses it for the shipped REFramework-chill settings.
 
 ### 3. Launch
 
@@ -99,6 +66,36 @@ Do not rename `re2_fw_config.txt`. The name is inherited from REFramework's conf
 2. Set Virtual Desktop's OpenXR runtime to VDXR.
 3. Connect the Quest 3 through Virtual Desktop.
 4. Launch RE7.
+
+## What This Changes
+
+- Movement, rotation, snap-turn, and cutscene comfort vignette.
+- Joystick snap turning, 45 degrees by default.
+- RE7-focused REFramework comfort config.
+- RE7 game config tuned for the setup below.
+- OpenXR and OpenVR files in the package, with OpenXR + VDXR recommended.
+
+## Recommended Setup
+
+This is the setup I use:
+
+- Quest 3
+- Virtual Desktop with VDXR
+- PC connected to router over Ethernet
+- Quest 3 connected over Wi-Fi 6/6E
+- Player near the router or wherever signal is strongest
+- RTX 4090, 64 GB DDR5
+
+Virtual Desktop settings:
+
+- Quality: Godlike
+- Codec: AV1 10-bit, or HEVC 10-bit fallback
+- Bitrate: 150-200+ Mbps
+- Sharpening: 0%
+- Refresh rate: 90 Hz
+- SSW: Off if stable
+
+With this setup I get stable 30-40 ms latency.
 
 ## Shipped Defaults
 
@@ -145,9 +142,3 @@ For better texture quality, I recommend [4K HD Upscaled Textures](https://www.ne
 - Game settings reset: switch to `dx11_non-rt`, then extract the mod zip again so `re7_config.ini` is restored.
 - Existing REFramework install conflicts: move old REFramework files out of the RE7 folder, then extract this package again.
 - Wireless latency or stutter: lower Virtual Desktop bitrate or quality before changing REFramework settings.
-
-## Why This Is A Fork
-
-These changes are distributed as a fork instead of a pull request to the original repo because they are experimental, mostly vibe coded, and currently tested only through my own in-progress RE7 playthrough. I fix issues as I find them.
-
-This build also includes personal comfort choices that may not be desirable for everyone or appropriate for upstream REFramework.

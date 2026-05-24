@@ -1,12 +1,12 @@
 # Release Delta From Official Master
 
-Generated on 2026-05-23 from branch `dev`.
+Generated on 2026-05-24 from branch `dev`.
 
 This file tracks how this release branch differs from the official REFramework `master` build.
 
 Keep it as a release manifest: before publishing a build, update this document so we can quickly answer what is custom in our build, why it exists, and how far it diverges from the official project.
 
-This inventory is based on the codebase diff from `master...HEAD`, not on commit history, plus the current uncommitted worktree edits present when the inventory was finalized.
+This inventory is based on the codebase diff from the official-reference branch (`upstream/master...HEAD` when the official upstream remote is available), not on commit history, plus the current uncommitted worktree edits present when the inventory was finalized.
 
 ## How To Use This File
 
@@ -20,11 +20,11 @@ This inventory is based on the codebase diff from `master...HEAD`, not on commit
 
 Before publishing a release:
 
-1. Refresh `master` so the official baseline is current.
+1. Fetch official `upstream/master` and tags for reference/version metadata. Do not merge or rebase current `upstream/master` into the RE7 release branch for normal releases.
 2. Confirm the release branch and commit that will be packaged.
-3. Run `git diff --stat master...HEAD` and update the size summary.
-4. Run `git diff --name-status master...HEAD` and confirm the file inventory still matches.
-5. Review `git diff master...HEAD` by feature area and update the numbered change list.
+3. Run `git diff --stat upstream/master...HEAD` or the equivalent official-reference comparison and update the size summary.
+4. Run `git diff --name-status upstream/master...HEAD` or the equivalent official-reference comparison and confirm the file inventory still matches.
+5. Review `git diff upstream/master...HEAD` by feature area and update the numbered change list.
 6. Check `git status --short`; include any intentional uncommitted release edits or commit them before publishing.
 7. Note any hardware-specific configs, temporary workarounds, or known differences from official behavior.
 
@@ -33,11 +33,12 @@ Before publishing a release:
 Comparison point:
 
 - Current branch: `dev`
-- Current HEAD: `ec37a392`
-- Official baseline branch: local `master`
-- Official baseline commit: `c4b13148`
-- Merge base with `master`: `aebc1e34`
-- Committed diff command used as the source of truth: `git diff master...HEAD`
+- Current HEAD: `6ae68457`
+- Official baseline branch: `upstream/master`
+- Official baseline commit: `e35d9435`
+- Merge base with `upstream/master`: `aebc1e34`
+- Upstream source tag at merge base: `v1.2`
+- Committed diff command used as the source of truth: `git diff upstream/master...HEAD`
 - Additional current-worktree diff checked with: `git diff HEAD`
 
 Before this inventory file was added, the branch differed from `master` by:
@@ -65,7 +66,7 @@ Compared with official REFramework `master`, this build is a practical Resident 
 
 At a high level, this release differs from official by adding:
 
-- REFramework-antipuke setup documentation for installing and tuning the opinionated RE7 comfort build.
+- REFramework-chill setup documentation for installing and tuning the opinionated RE7 comfort build.
 - RE7 TDB49 release packaging and known-good config payloads.
 - Release package versioning prefixed with the upstream REFramework source-release version this fork is based on.
 - Quest/VR snap turning and safeguards so it does not conflict with inventory or cutscenes.
@@ -519,6 +520,7 @@ Purpose: preserve what has been learned about the working RE7 TDB49 build and av
 
 Files changed:
 
+- `AGENTS.md`
 - `MEMORY.md`
 
 What changed:
@@ -535,12 +537,14 @@ What changed:
   - inventory snap-turn conflict and fix
   - game-over comfort direction
   - follow-up observation that RE7 game-over discomfort also involves a captured/frozen last-frame backdrop and should suppress likely capture/backdrop GUI elements
+- Updated branch memory to clarify that `origin` is the `tsilva/REFramework-chill` fork, `upstream` is official `praydog/REFramework`, and the RE7 release branch must preserve its upstream `v1.2` / TDB49-era baseline rather than pulling current `upstream/master`.
+- Added agent instructions warning not to pull, merge, or rebase current `upstream/master` into the RE7 release branch except for an explicit porting effort.
 
 Why:
 
 - The branch depends on a specific working recipe. Capturing that context makes the code changes maintainable and the release process repeatable.
 
-### 18. REFramework-antipuke README
+### 18. REFramework-chill README
 
 Purpose: make the repository README document how users should install and run the opinionated RE7 comfort build.
 
@@ -553,10 +557,13 @@ What changed:
 
 - Replaced the upstream-generic README with a REFramework-antipuke setup guide.
 - Updated README branding to `REFramework-antipuke` and added the short repository description: "Opinionated RE7 VR comfort fork of Praydog's REFramework. Experimental, Quest 3 / Virtual Desktop / VDXR focused."
+- Updated README branding again to `REFramework-chill` after the fork moved to `git@github.com:tsilva/REFramework-chill.git`, while noting older/current artifacts may still use the previous `RE7-antipuke` package name.
 - Explained that the build exists because RE7 can be unusually intense in VR due to fast and unstable camera transitions, cutscenes, and other comfort-hostile moments.
 - Made the original [praydog/REFramework](https://github.com/praydog/REFramework) repository prominent at the beginning of the README.
 - Added a README section explaining why these experimental, RE7-only, personal-comfort changes are distributed through a fork instead of as an upstream pull request.
+- Merged the fork rationale into the README introduction so users see the experimental fork scope before the install flow.
 - Reworked the README from a user install perspective with a quick start, clearer install phases, explicit RE7 game-folder guidance, and troubleshooting.
+- Removed the separate quick start and moved the full install flow into its place so users reach setup instructions immediately after the introduction.
 - Made the README more concise by deduplicating repeated project/runtime descriptions and compressing long settings lists into shipped-default summaries.
 - Clarified that GitHub Actions artifact downloads may contain the actual versioned RE7-antipuke zip inside a wrapper artifact zip.
 - Documented that the recommended OpenXR + Virtual Desktop + VDXR path may require removing or renaming `openvr_api.dll`, because REFramework tries OpenVR first when that DLL is present.
@@ -566,6 +573,7 @@ What changed:
 - Kept the documented RE7 and REFramework setting recommendations aligned with the actual `release/re7_config.ini` and `release/re2_fw_config.txt` values shipped in the package.
 - Documented the critical Steam beta rollback flow for selecting the `dx11_non-rt` DX11 / non-RT game build before installing the mod.
 - Documented the install flow for the packaged build, including extracting `dinput8.dll`, both runtime loader DLLs, bundled configs, and `reframework\autorun` into the RE7 game folder.
+- Documented that REFramework-chill targets the tested RE7 DX11 / non-RT / TDB49 package path while current upstream has moved toward a newer universal build shape.
 - Added an optional recommendation for the Nexus Mods `4K HD Upscaled Textures` DX11 texture pack.
 - Removed the separate `SETUP.md` copy so the README is the canonical user-facing setup document.
 
@@ -587,7 +595,8 @@ Files changed:
 
 What changed:
 
-- The package script now derives the upstream source-release prefix from the merge base between `HEAD` and the configured upstream branch, defaulting to `origin/master` with local `master` as a fallback.
+- The package script now derives the upstream source-release prefix from the merge base between `HEAD` and the configured upstream branch, defaulting to `upstream/master` with `origin/master` and local `master` as fallbacks.
+- The GitHub Actions workflow now adds/fetches official `praydog/REFramework` as `upstream` before packaging, so `upstream/master` means the official project instead of this fork.
 - The script resolves the upstream source tag with `git describe --tags --abbrev=0 --match "v*" <merge-base>`.
 - The script derives the fork build suffix from the current branch tag/description and strips the old descriptive tag prefix down to the trailing `v...` build number.
 - When `-PackageName` is not explicitly supplied, the release zip now uses the format `<upstream-source-version>-RE7-antipuke-<fork-build-version>.zip`, for example `v1.2-RE7-antipuke-v1.1.6.zip`.
@@ -604,11 +613,12 @@ Why:
 
 | File | Diff role | What changed |
 | --- | --- | --- |
-| `.github/workflows/dev-release.yml` | Packaging workflow | Replaced multi-game artifact workflow with RE7-only build, package, and upload flow; updated checkout/upload actions and fetches full history/tags for upstream-prefixed package versioning. |
+| `AGENTS.md` | Agent instructions | Added explicit upstream/branch baseline rules: `origin` is this fork, `upstream` is official REFramework, and normal RE7 release work must not pull current `upstream/master` into the v1.2/TDB49-based branch. |
+| `.github/workflows/dev-release.yml` | Packaging workflow | Replaced multi-game artifact workflow with RE7-only build, package, and upload flow; updated checkout/upload actions and fetches full history/tags plus official `upstream/master` for upstream-prefixed package versioning. |
 | `.gitignore` | Local build hygiene | Added `build_v1_2*/` ignore pattern. |
 | `CMakeLists.txt` | Build output layout | Added post-build copy commands for OpenVR/OpenXR loader DLLs for every game target; current worktree uses `${CMKR_TARGET}` in those generated blocks. |
-| `MEMORY.md` | Documentation | Added working RE7 TDB49 branch memory, build recipe, deploy notes, known issue notes, and follow-up game-over backdrop suppression note. |
-| `README.md` | User setup documentation | Replaced upstream-generic README content with install, runtime, hardware, Virtual Desktop, RE7, and REFramework setting guidance for the opinionated REFramework-antipuke comfort build. |
+| `MEMORY.md` | Documentation | Added working RE7 TDB49 branch memory, build recipe, deploy notes, upstream/fork baseline rules, known issue notes, and follow-up game-over backdrop suppression note. |
+| `README.md` | User setup documentation | Replaced upstream-generic README content with install, runtime, hardware, Virtual Desktop, RE7, and REFramework setting guidance for the opinionated REFramework-chill comfort build. |
 | `cmake.toml` | Build template | Added cmkr template post-build copy hook for runtime loader DLLs. |
 | `dev/package-re7-tdb49.ps1` | Packaging script | Added script that stages DLLs, configs, scripts, revision metadata, and creates an upstream-prefixed RE7-antipuke release zip. |
 | `include/reframework/API.hpp` | API cleanup | Made `sdk()` return `const REFrameworkSDKData*` explicitly and normalized final newline. |
@@ -632,6 +642,6 @@ Why:
 ## Notes
 
 - The inventory above intentionally avoids commit chronology. It groups the final code diff by the user-facing or build-facing purpose of each change.
-- I used `master...HEAD` for "changes not in master" because it isolates work introduced on this branch. A literal `git diff master` is much larger in this repository because `master` has moved onto a newer upstream line, so it includes broad upstream/base divergence that is not part of this RE7 TDB49 change set.
+- Use the three-dot official-reference comparison, currently `git diff upstream/master...HEAD`, for "changes not in official master" because it isolates work introduced on this branch. A literal two-dot diff against current master is much larger because `master` has moved onto a newer upstream line, so it includes broad upstream/base divergence that is not part of this RE7 TDB49 change set.
 - `release/re7_config.ini` contains a full captured game config, including display/adapter sections from the tested machine. That appears intentional for reproducing the working package, but it is hardware-specific data in the release payload.
 - Once this document is committed, future releases should treat it as part of the branch's release metadata and update it alongside release-facing code/config changes.

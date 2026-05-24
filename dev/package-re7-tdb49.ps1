@@ -3,7 +3,7 @@ param(
     [string] $Configuration = "Release",
     [string] $OutputDir = "build\release",
     [string] $PackageName = "",
-    [string] $UpstreamBranch = "origin/master"
+    [string] $UpstreamBranch = "upstream/master"
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,13 +33,19 @@ function Get-ExistingUpstreamBranch {
         return $PreferredBranch
     }
 
+    & git -C $repoRoot rev-parse --verify --quiet "origin/master" | Out-Null
+
+    if ($LASTEXITCODE -eq 0) {
+        return "origin/master"
+    }
+
     & git -C $repoRoot rev-parse --verify --quiet "master" | Out-Null
 
     if ($LASTEXITCODE -eq 0) {
         return "master"
     }
 
-    throw "Could not find upstream branch '$PreferredBranch' or fallback branch 'master'"
+    throw "Could not find upstream branch '$PreferredBranch' or fallback branches 'origin/master'/'master'"
 }
 
 function Get-ForkBuildVersion {

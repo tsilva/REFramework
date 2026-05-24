@@ -16,6 +16,11 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Fetch official upstream baseline
+        run: |
+          git remote add upstream https://github.com/praydog/REFramework.git
+          git fetch --tags upstream master
+
       - name: Configure CMake
         run: cmake -S ${{github.workspace}} -B ${{github.workspace}}/build -G "Visual Studio 17 2022" -A x64 -DDEVELOPER_MODE=ON -DCMKR_SKIP_GENERATION=ON
 
