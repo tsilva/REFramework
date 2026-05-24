@@ -73,7 +73,7 @@ $resolvedUpstreamBranch = Get-ExistingUpstreamBranch $UpstreamBranch
 $upstreamMergeBase = Invoke-GitValue @("merge-base", $resolvedUpstreamBranch, "HEAD")
 $upstreamSourceVersion = Invoke-GitValue @("describe", "--tags", "--abbrev=0", "--match", "v*", $upstreamMergeBase)
 $forkBuildVersion = Get-ForkBuildVersion
-$buildVersion = "$upstreamSourceVersion-RE7-antipuke-$forkBuildVersion"
+$buildVersion = "$upstreamSourceVersion-RE7-chill-$forkBuildVersion"
 
 if ([string]::IsNullOrWhiteSpace($PackageName)) {
     $PackageName = "$buildVersion.zip"

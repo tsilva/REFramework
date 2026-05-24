@@ -555,9 +555,8 @@ Files changed:
 
 What changed:
 
-- Replaced the upstream-generic README with a REFramework-antipuke setup guide.
-- Updated README branding to `REFramework-antipuke` and added the short repository description: "Opinionated RE7 VR comfort fork of Praydog's REFramework. Experimental, Quest 3 / Virtual Desktop / VDXR focused."
-- Updated README branding again to `REFramework-chill` after the fork moved to `git@github.com:tsilva/REFramework-chill.git`, while noting older/current artifacts may still use the previous `RE7-antipuke` package name.
+- Replaced the upstream-generic README with a REFramework-chill setup guide.
+- Updated README branding to `REFramework-chill` and added the short repository description: "Opinionated RE7 VR comfort fork of Praydog's REFramework. Experimental, Quest 3 / Virtual Desktop / VDXR focused."
 - Explained that the build exists because RE7 can be unusually intense in VR due to fast and unstable camera transitions, cutscenes, and other comfort-hostile moments.
 - Made the original [praydog/REFramework](https://github.com/praydog/REFramework) repository prominent at the beginning of the README.
 - Added a README section explaining why these experimental, RE7-only, personal-comfort changes are distributed through a fork instead of as an upstream pull request.
@@ -565,7 +564,7 @@ What changed:
 - Reworked the README from a user install perspective with a quick start, clearer install phases, explicit RE7 game-folder guidance, and troubleshooting.
 - Removed the separate quick start and moved the full install flow into its place so users reach setup instructions immediately after the introduction.
 - Made the README more concise by deduplicating repeated project/runtime descriptions and compressing long settings lists into shipped-default summaries.
-- Clarified that GitHub Actions artifact downloads may contain the actual versioned RE7-antipuke zip inside a wrapper artifact zip.
+- Clarified that GitHub Actions artifact downloads may contain the actual versioned RE7-chill zip inside a wrapper artifact zip.
 - Documented that the recommended OpenXR + Virtual Desktop + VDXR path may require removing or renaming `openvr_api.dll`, because REFramework tries OpenVR first when that DLL is present.
 - Explained that `re2_fw_config.txt` should not be renamed even though the build targets RE7.
 - Documented the main comfort changes: movement/rotation/cutscene vignette support and 45 degree joystick snap turning.
@@ -599,7 +598,8 @@ What changed:
 - The GitHub Actions workflow now adds/fetches official `praydog/REFramework` as `upstream` before packaging, so `upstream/master` means the official project instead of this fork.
 - The script resolves the upstream source tag with `git describe --tags --abbrev=0 --match "v*" <merge-base>`.
 - The script derives the fork build suffix from the current branch tag/description and strips the old descriptive tag prefix down to the trailing `v...` build number.
-- When `-PackageName` is not explicitly supplied, the release zip now uses the format `<upstream-source-version>-RE7-antipuke-<fork-build-version>.zip`, for example `v1.2-RE7-antipuke-v1.1.6.zip`.
+- When `-PackageName` is not explicitly supplied, the release zip now uses the format `<upstream-source-version>-RE7-chill-<fork-build-version>.zip`, for example `v1.2-RE7-chill-v1.1.6.zip`.
+- The GitHub Actions artifact name and README install examples now use `RE7-chill`.
 - `reframework_revision.txt` now includes `version`, `upstream_branch`, `upstream_merge_base`, `upstream_source_version`, and `fork_build_version`.
 - The GitHub artifact upload now accepts the dynamically named zip.
 - `README.md` now explains the versioned package-name format while noting that older packages may still use `RE7_TDB49.zip`.
@@ -620,7 +620,7 @@ Why:
 | `MEMORY.md` | Documentation | Added working RE7 TDB49 branch memory, build recipe, deploy notes, upstream/fork baseline rules, known issue notes, and follow-up game-over backdrop suppression note. |
 | `README.md` | User setup documentation | Replaced upstream-generic README content with install, runtime, hardware, Virtual Desktop, RE7, and REFramework setting guidance for the opinionated REFramework-chill comfort build. |
 | `cmake.toml` | Build template | Added cmkr template post-build copy hook for runtime loader DLLs. |
-| `dev/package-re7-tdb49.ps1` | Packaging script | Added script that stages DLLs, configs, scripts, revision metadata, and creates an upstream-prefixed RE7-antipuke release zip. |
+| `dev/package-re7-tdb49.ps1` | Packaging script | Added script that stages DLLs, configs, scripts, revision metadata, and creates an upstream-prefixed RE7-chill release zip. |
 | `include/reframework/API.hpp` | API cleanup | Made `sdk()` return `const REFrameworkSDKData*` explicitly and normalized final newline. |
 | `release/re2_fw_config.txt` | Release config | Added REFramework config defaults for VR comfort, cutscene comfort vignette, snap turning, UI scale/distance, and rendering flags. |
 | `release/re7_config.ini` | Release config | Added tested RE7 game config for the packaged build. |

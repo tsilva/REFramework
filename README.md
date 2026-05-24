@@ -37,8 +37,8 @@ Reference: Capcom's Steam announcement for the DX11 rollback lists the same bran
 
 ### 2. Install The Mod Files
 
-1. Download the build zip. Current RE7-targeted package names look like `v1.2-RE7-antipuke-v1.1.6.zip`; older packages may be named `RE7_TDB49.zip`.
-2. If you downloaded a GitHub Actions artifact named `RE7-antipuke`, unzip that artifact first. Install the versioned mod zip inside it.
+1. Download the build zip. Current RE7-targeted package names look like `v1.2-RE7-chill-v1.1.6.zip`; older packages may be named `RE7_TDB49.zip`.
+2. If you downloaded a GitHub Actions artifact named `RE7-chill`, unzip that artifact first. Install the versioned mod zip inside it.
 3. Open the RE7 folder that contains `re7.exe`. A default Steam path is usually `C:\Program Files (x86)\Steam\steamapps\common\RESIDENT EVIL 7 biohazard`.
 4. Back up any existing REFramework files there:
    - `dinput8.dll`
